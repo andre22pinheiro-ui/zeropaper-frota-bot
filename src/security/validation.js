@@ -17,13 +17,13 @@ export function validateAndFormatPlate(rawPlate) {
   const match = clean.match(PT_PLATE_REGEX);
 
   if (!match) {
-    // Permite formato simples sem hífens ex: 39HZ66 -> 39-HZ-66
+    // Permite formato simples sem hífens ex: 39HZ66 -> 39-HZ-66 apenas se for formato válido
     const alphanumeric = clean.replace(/[^A-Z0-9]/g, '');
     if (alphanumeric.length === 6) {
-      const p1 = alphanumeric.slice(0, 2);
-      const p2 = alphanumeric.slice(2, 4);
-      const p3 = alphanumeric.slice(4, 6);
-      return `${p1}-${p2}-${p3}`;
+      const formatted = `${alphanumeric.slice(0, 2)}-${alphanumeric.slice(2, 4)}-${alphanumeric.slice(4, 6)}`;
+      if (PT_PLATE_REGEX.test(formatted)) {
+        return formatted;
+      }
     }
     throw new ValidationError(`Formato de matrícula inválido: "${rawPlate}". Usa o formato XX-XX-XX.`);
   }

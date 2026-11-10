@@ -13,9 +13,26 @@ export class StockRepository {
   }
 
   async findByName(query) {
-    const qClean = String(query).toLowerCase().trim();
+    const normalize = str => String(str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const qClean = normalize(query);
+    const qWords = qClean.split(/\s+/).filter(w => w.length > 2);
     const items = await this.getAll();
-    return items.find(s => s.item.toLowerCase().includes(qClean) || qClean.includes(s.item.toLowerCase())) || null;
+
+    // 1. Correspondência exata ou por substring direta
+    const direct = items.find(s => {
+      const sNorm = normalize(s.item);
+      return sNorm.includes(qClean) || qClean.includes(sNorm);
+    });
+    if (direct) return direct;
+
+    // 2. Correspondência por palavras e radicais (ex: filtro / filtros)
+    return items.find(s => {
+      const sNorm = normalize(s.item);
+      return qWords.length > 0 && qWords.every(w => {
+        const root = w.replace(/s$/, '');
+        return sNorm.includes(root);
+      });
+    }) || null;
   }
 
   async updateQuantity(id, newQuantity) {

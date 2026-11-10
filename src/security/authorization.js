@@ -85,14 +85,14 @@ export async function identifyUser(fromId, fromName = 'Utilizador') {
 /**
  * Regista ou autoriza um novo utilizador pelo Telegram ID (apenas por Chefia)
  */
-export async function authorizeUserByAdmin(adminFromId, targetTelegramId, numeroFuncionario, role = 'Motorista') {
+export async function authorizeUserByAdmin(adminFromId, targetTelegramId, numeroFuncionario, role = 'Motorista', customName = null) {
   const admin = await identifyUser(adminFromId);
   if (!admin || admin.role !== 'Chefia') {
     throw new AuthorizationError('Apenas administradores (Chefia) podem autorizar novos utilizadores.');
   }
 
   const funcionario = await personnelRepository.findByNumero(numeroFuncionario);
-  const name = funcionario?.nome || `Operador ${numeroFuncionario}`;
+  const name = customName || funcionario?.nome || `Operador ${numeroFuncionario}`;
   const resolvedRole = funcionario?.perfil || role;
 
   const targetUid = String(targetTelegramId).trim();
@@ -114,7 +114,10 @@ export async function authorizeUserByAdmin(adminFromId, targetTelegramId, numero
  * Lista utilizadores autorizados
  */
 export function listAuthorizedUsers() {
-  return activeUsersMap;
+  return Object.entries(activeUsersMap).map(([telegramId, user]) => ({
+    telegramId,
+    ...user
+  }));
 }
 
 export default {
