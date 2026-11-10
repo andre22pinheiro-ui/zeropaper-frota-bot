@@ -152,3 +152,4 @@ export function registerCommands(bot) {
 export default {
   registerCommands
 };
+

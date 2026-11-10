@@ -58,3 +58,4 @@ export class HygieneService {
 
 export const hygieneService = new HygieneService();
 export default hygieneService;
+

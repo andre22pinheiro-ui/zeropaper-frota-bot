@@ -21,3 +21,4 @@
 1. **Odómetro Nunca Recua**: `km_fim >= km_inicio`. Tentativas com valores inferiores são rejeitadas.
 2. **Stock Não-Negativo**: Operações de saída que resultem em saldo < 0 são estritamente bloqueadas.
 3. **Imobilização Automática**: Anomalias com termo crítico de segurança colocam automaticamente a viatura em `manutencao`.
+

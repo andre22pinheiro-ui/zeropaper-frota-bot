@@ -71,3 +71,4 @@ export function createLogger(moduleName) {
 }
 
 export default createLogger;
+

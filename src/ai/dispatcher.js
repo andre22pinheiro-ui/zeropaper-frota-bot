@@ -223,3 +223,4 @@ export async function dispatchMessage(text, ctx) {
 export default {
   dispatchMessage
 };
+

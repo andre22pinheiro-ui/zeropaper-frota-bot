@@ -27,3 +27,4 @@ services:
         value: "https://appfrota-ten.vercel.app"
       - key: LOG_LEVEL
         value: "info"
+

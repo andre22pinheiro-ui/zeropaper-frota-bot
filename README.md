@@ -34,3 +34,4 @@ O projeto inclui uma suite de testes unitários e de integração nativa do Node
 npm test
 ```
 Resultados: 10/10 testes aprovados com cobertura das regras de negócio e validações de integridade.
+

@@ -65,3 +65,4 @@ test('StockService: Inventário de Peças', async () => {
   assert.ok(summary.includes('Inventário de Stock'));
   assert.ok(summary.includes('Óleo'));
 });
+

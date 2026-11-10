@@ -43,3 +43,4 @@ Cada operação gera uma chave SHA-256 única baseada em:
 `hash(userId + operationType + payload)`
 
 Se a mesma mensagem ou requisição for reenviada (por falha de rede ou duplo clique), o motor de idempotência interceta a chamada e devolve a resposta em cache sem gerar uma segunda gravação na base de dados.
+

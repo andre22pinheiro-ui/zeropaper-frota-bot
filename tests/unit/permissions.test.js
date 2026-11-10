@@ -30,3 +30,4 @@ test('EnforcePermission com Lançamento de Exceção', () => {
   // Utilizador nulo
   assert.throws(() => enforcePermission(null, 'view_fleet'), AuthorizationError);
 });
+

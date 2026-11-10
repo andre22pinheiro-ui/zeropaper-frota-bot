@@ -33,3 +33,4 @@ export function buildConfirmationPrompt(userId, operation, previewText, payload)
 export default {
   buildConfirmationPrompt
 };
+

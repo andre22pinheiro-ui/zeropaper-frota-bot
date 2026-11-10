@@ -168,3 +168,4 @@ function fallbackHeuristic(text) {
 export default {
   classifyIntent
 };
+

@@ -61,3 +61,4 @@ export async function executeQuery(queryPromise, operationName = 'Query') {
 }
 
 export default supabase;
+

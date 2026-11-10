@@ -93,6 +93,25 @@ async function analyzePhoto(ctx) {
   }
 }
 
+/**
+ * Envia mensagens com Markdown e fallback automático para texto simples
+ */
+export async function sendReply(ctx, text, extra = null) {
+  try {
+    await ctx.replyWithMarkdown(text, extra);
+  } catch (mdErr) {
+    log.warn('Markdown parse falhou no Telegram, a enviar em texto simples:', mdErr.message);
+    try {
+      const plainOpts = extra ? { ...extra } : {};
+      delete plainOpts.parse_mode;
+      const stripped = text.replace(/[*_`]/g, '');
+      await ctx.reply(stripped, plainOpts);
+    } catch (fallbackErr) {
+      log.error('Erro crítico ao enviar mensagem Telegram:', fallbackErr.message);
+    }
+  }
+}
+
 // ─── Registro de Middlewares & Eventos ───────────────────────────────────────
 
 bot.use(async (ctx, next) => {
@@ -117,7 +136,7 @@ bot.on('text', async (ctx) => {
     await ctx.sendChatAction('typing');
     const result = await dispatchMessage(text, ctx);
     if (result && result.text) {
-      await ctx.replyWithMarkdown(result.text, result.keyboard ? result.keyboard : undefined);
+      await sendReply(ctx, result.text, result.keyboard ? result.keyboard : undefined);
     }
   } catch (err) {
     log.error('Erro no processamento de texto:', err.message);
@@ -136,12 +155,12 @@ bot.on(['voice', 'audio'], async (ctx) => {
       return;
     }
 
-    await ctx.replyWithMarkdown(`🎙️ _"${transcription}"_`);
+    await sendReply(ctx, `🎙️ _"${transcription}"_`);
     await ctx.sendChatAction('typing');
 
     const result = await dispatchMessage(transcription, ctx);
     if (result && result.text) {
-      await ctx.replyWithMarkdown(result.text, result.keyboard ? result.keyboard : undefined);
+      await sendReply(ctx, result.text, result.keyboard ? result.keyboard : undefined);
     }
   } catch (err) {
     log.error('Erro no processamento de voz:', err.message);
@@ -162,7 +181,7 @@ bot.on('photo', async (ctx) => {
 
     const result = await dispatchMessage(combinedText, ctx);
     if (result && result.text) {
-      await ctx.replyWithMarkdown(result.text, result.keyboard ? result.keyboard : undefined);
+      await sendReply(ctx, result.text, result.keyboard ? result.keyboard : undefined);
     }
   } catch (err) {
     log.error('Erro ao processar fotografia:', err.message);
@@ -175,3 +194,4 @@ bot.catch((err, ctx) => {
 });
 
 export default bot;
+

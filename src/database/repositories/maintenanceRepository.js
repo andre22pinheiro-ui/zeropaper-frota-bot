@@ -35,3 +35,4 @@ export class MaintenanceRepository {
 
 export const maintenanceRepository = new MaintenanceRepository();
 export default maintenanceRepository;
+

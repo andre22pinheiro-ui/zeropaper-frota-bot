@@ -56,3 +56,4 @@ export class AnomalyRepository {
 
 export const anomalyRepository = new AnomalyRepository();
 export default anomalyRepository;
+

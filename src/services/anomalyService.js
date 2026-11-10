@@ -89,3 +89,4 @@ export class AnomalyService {
 
 export const anomalyService = new AnomalyService();
 export default anomalyService;
+

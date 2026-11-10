@@ -26,3 +26,4 @@ A segurança baseia-se exclusivamente no ID numérico do Telegram (`ctx.from.id`
 
 - Nenhuma credencial (JWT, chaves Supabase, tokens Telegram) é guardada no código.
 - O logger estruturado possui sanitizadores regex (`[REDACTED]`) para impedir que tokens apareçam nos logs.
+

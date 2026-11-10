@@ -53,3 +53,4 @@ export class StockRepository {
 
 export const stockRepository = new StockRepository();
 export default stockRepository;
+

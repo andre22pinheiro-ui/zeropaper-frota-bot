@@ -33,3 +33,4 @@ export class HygieneRepository {
 
 export const hygieneRepository = new HygieneRepository();
 export default hygieneRepository;
+

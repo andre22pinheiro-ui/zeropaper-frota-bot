@@ -60,3 +60,4 @@ test('Validação de Movimento de Stock', () => {
   assert.throws(() => validateStockQuantity(0, 'adicionar', 10), ValidationError);
   assert.throws(() => validateStockQuantity(-2, 'adicionar', 10), ValidationError);
 });
+

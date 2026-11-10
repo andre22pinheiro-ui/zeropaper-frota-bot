@@ -73,9 +73,11 @@ export class FleetService {
       else if (v.status === 'manutencao') oficina++;
       else disp++;
 
+      const cleanStatus = v.status === 'em_servico' ? 'em serviço' : v.status === 'manutencao' ? 'em oficina / manutenção' : (v.status || 'disponível');
+
       texto += `${statusIcon} *${v.matricula}* — ${v.marca_modelo || v.tipo || 'Viatura'}\n`;
       texto += `   • Odómetro: **${(v.quilometragem || 0).toLocaleString('pt-PT')} km**\n`;
-      texto += `   • Estado: _${v.status || 'disponível'}_\n`;
+      texto += `   • Estado: _${cleanStatus}_\n`;
       if (v.proxima_inspecao) texto += `   • Inspeção Periódica: ${v.proxima_inspecao}\n`;
     }
 
@@ -87,7 +89,8 @@ export class FleetService {
       texto += `\n⚠️ *Avarias Pendentes na Oficina (${pendentes.length}):*\n`;
       for (const a of pendentes) {
         const imob = a.imobiliza ? '⛔ *IMOBILIZADA*' : '🟡';
-        texto += `• ${imob} [${a.matricula || 'Geral'}]: ${a.descricao} (${a.prioridade})\n`;
+        const cleanDesc = (a.descricao || '').replace(/[_*`]/g, ' ');
+        texto += `• ${imob} ${a.matricula || 'Geral'}: ${cleanDesc} (${a.prioridade || 'Média'})\n`;
       }
     }
 
@@ -97,3 +100,4 @@ export class FleetService {
 
 export const fleetService = new FleetService();
 export default fleetService;
+

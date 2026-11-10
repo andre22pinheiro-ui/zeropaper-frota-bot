@@ -74,3 +74,4 @@ export default {
   hasPermission,
   enforcePermission
 };
+

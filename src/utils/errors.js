@@ -39,3 +39,4 @@ export class DatabaseError extends DomainError {
     super(message, 'DATABASE_ERROR', 500);
   }
 }
+
