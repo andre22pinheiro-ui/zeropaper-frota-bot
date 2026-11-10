@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: zeropaper-frota-bot
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADMIN_TELEGRAM_ID
+        value: "950415577"
+      - key: SUPABASE_URL
+        value: "https://bwibtpcunojmtnrnqpvg.supabase.co"
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: APP_BASE_URL
+        value: "https://appfrota-ten.vercel.app"
+      - key: LOG_LEVEL
+        value: "info"
