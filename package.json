@@ -1,0 +1,25 @@
+{
+  "name": "zeropaper-frota-bot",
+  "version": "1.0.0",
+  "description": "Bot Telegram Dedicado para o AppFrota / ZeroPaperFrota com Ingestão Cognitiva e Integração Supabase",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test tests/**/*.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.1",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "telegraf": "^4.16.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "André Pinheiro",
+  "license": "MIT"
+}
+
