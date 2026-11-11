@@ -17,7 +17,6 @@ import { checkDatabaseHealth, getSupabaseMissingEnv } from './src/database/supab
 import { createLogger } from './src/utils/logger.js';
 
 const PRIMARY_RENDER_URL = 'https://zeropaper-frota-bot.onrender.com';
-const MIRROR_RENDER_URL = 'https://zeropaper-frota-bot-0h2h.onrender.com';
 
 const log = createLogger('Server');
 
@@ -49,7 +48,7 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     status: missingEnv.length === 0 ? 'online' : 'misconfigured',
     activeUrl: getActiveRenderUrl(),
-    renderCluster: [PRIMARY_RENDER_URL, MIRROR_RENDER_URL],
+    primaryUrl: PRIMARY_RENDER_URL,
     missingEnv,
     timestamp: new Date().toISOString()
   });
@@ -75,8 +74,7 @@ app.get('/health', async (req, res) => {
     database: dbHealth,
     render: {
       activeUrl: getActiveRenderUrl(),
-      primaryUrl: PRIMARY_RENDER_URL,
-      mirrorUrl: MIRROR_RENDER_URL
+      primaryUrl: PRIMARY_RENDER_URL
     },
     bot: {
       username: 'zeropaperfrotaBot',
@@ -148,15 +146,13 @@ async function start() {
       })
       .catch((err) => log.error('❌ Erro ao verificar Supabase:', err.message));
 
-    // 4. Keep-Alive HTTP Render (serviços zeropaper-frota-bot e zeropaper-frota-bot-0h2h) a cada 10 minutos
+    // 4. Keep-Alive HTTP Render (serviço dedicado zeropaper-frota-bot.onrender.com) a cada 10 minutos
     if (process.env.RENDER || process.env.NODE_ENV === 'production' || process.env.RENDER_EXTERNAL_URL) {
-      const keepAliveTargets = [...new Set([getActiveRenderUrl(), PRIMARY_RENDER_URL, MIRROR_RENDER_URL])];
+      const keepAliveUrl = getActiveRenderUrl();
       setInterval(() => {
-        for (const baseUrl of keepAliveTargets) {
-          fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(4000) }).catch(() => {});
-        }
+        fetch(`${keepAliveUrl}/health`, { signal: AbortSignal.timeout(4000) }).catch(() => {});
       }, 10 * 60 * 1000).unref();
-      log.info(`📡 Keep-Alive Render ativo a cada 10 min: ${keepAliveTargets.map((u) => `${u}/health`).join(' | ')}`);
+      log.info(`📡 Keep-Alive Render ativo a cada 10 min: ${keepAliveUrl}/health`);
     }
 
     // 5. Iniciar Bot Telegraf (@zeropaperfrotaBot): setWebhook Cloud-Native com retry 429 (sem fallback Polling na nuvem)

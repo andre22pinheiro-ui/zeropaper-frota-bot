@@ -11,15 +11,15 @@ import { fleetComplianceService } from '../../src/services/fleetComplianceServic
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '../..');
 
-test('ZeroPaperFrota Cloud-Native: TELEGRAM_FROTAS_TOKEN, /webhook/frota e serviços Render dedicados', () => {
+test('ZeroPaperFrota Cloud-Native: TELEGRAM_FROTAS_TOKEN, /webhook/frota e serviço Render único', () => {
   const telegramSrc = fs.readFileSync(path.join(ROOT_DIR, 'src/bot/telegram.js'), 'utf-8');
   assert.ok(telegramSrc.includes('TELEGRAM_FROTAS_TOKEN'), 'telegram.js deve priorizar TELEGRAM_FROTAS_TOKEN');
 
   const serverSrc = fs.readFileSync(path.join(ROOT_DIR, 'server.js'), 'utf-8');
   assert.ok(serverSrc.includes('/webhook/frota'), 'server.js deve expor POST /webhook/frota');
   assert.ok(serverSrc.includes('mountFleetWebhookTransport'), 'server.js deve montar transporte webhook cloud-native');
-  assert.ok(serverSrc.includes('zeropaper-frota-bot.onrender.com'), 'server.js deve usar serviço primário zeropaper-frota-bot.onrender.com');
-  assert.ok(serverSrc.includes('zeropaper-frota-bot-0h2h.onrender.com'), 'server.js deve manter keep-alive em zeropaper-frota-bot-0h2h.onrender.com');
+  assert.ok(serverSrc.includes('zeropaper-frota-bot.onrender.com'), 'server.js deve usar serviço dedicado zeropaper-frota-bot.onrender.com');
+  assert.ok(!serverSrc.includes('zeropaper-frota-bot-0h2h'), 'server.js não deve acoplar o serviço secundário -0h2h ao ZeroPaperFrota');
   assert.ok(!serverSrc.includes('17bj'), 'server.js não deve apontar para host obsoleto 17bj');
   assert.ok(serverSrc.includes('/health'), 'server.js deve manter keep-alive /health');
 

@@ -1,5 +1,5 @@
-# ZeroPaperFrota Bot (@zeropaperfrotaBot) — Serviço Cloud-Native Dedicado
-# Serviços Render dedicados: https://zeropaper-frota-bot.onrender.com (primário) & https://zeropaper-frota-bot-0h2h.onrender.com (réplica/Blueprint)
+# ZeroPaperFrota Bot (@zeropaperfrotaBot) — Serviço Cloud-Native Dedicado e Único
+# Serviço Render alocado: https://zeropaper-frota-bot.onrender.com (srv-dbqah556e07s73fj8550)
 # Repositório GitHub: andre22pinheiro-ui/zeropaper-frota-bot | Webhook único: /webhook/frota
 services:
   - type: web
