@@ -11,9 +11,12 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 import express from 'express';
 import { bot } from './src/bot/telegram.js';
+import { mountFleetWebhookTransport } from './src/services/fleetWebhookTransport.js';
 import { startFleetProactiveMonitor, stopFleetProactiveMonitor } from './src/services/fleetProactiveService.js';
 import { checkDatabaseHealth } from './src/database/supabase.js';
 import { createLogger } from './src/utils/logger.js';
+
+const REPURPOSED_RENDER_URL = 'https://telegram-master-bot-17bj.onrender.com';
 
 const log = createLogger('Server');
 
@@ -115,37 +118,27 @@ async function start() {
       })
       .catch((err) => log.error('❌ Erro ao verificar Supabase:', err.message));
 
-    // 4. Keep-Alive HTTP Render a cada 10 minutos
+    // 4. Keep-Alive HTTP Render (serviço dedicado telegram-master-bot-17bj.onrender.com) a cada 10 minutos
     if (process.env.RENDER || process.env.NODE_ENV === 'production' || process.env.RENDER_EXTERNAL_URL) {
-      const keepAliveUrl = (process.env.RENDER_EXTERNAL_URL || 'https://zeropaper-frota-bot.onrender.com').replace(/\/$/, '');
+      const keepAliveUrl = (process.env.RENDER_EXTERNAL_URL || REPURPOSED_RENDER_URL).replace(/\/$/, '');
       setInterval(() => {
         fetch(`${keepAliveUrl}/health`, { signal: AbortSignal.timeout(4000) }).catch(() => {});
       }, 10 * 60 * 1000).unref();
       log.info(`📡 Keep-Alive Render ativo: ${keepAliveUrl}/health a cada 10 min.`);
     }
 
-    // 5. Iniciar Bot Telegraf (@zeropaperfrotaBot): Webhook em Cloud / Polling em Dev Local (sem await bloqueante)
+    // 5. Iniciar Bot Telegraf (@zeropaperfrotaBot): setWebhook Cloud-Native com retry 429 (sem fallback Polling na nuvem)
     const renderUrl = process.env.RENDER_EXTERNAL_URL || process.env.WEBHOOK_BASE_URL;
-    if (renderUrl && process.env.USE_POLLING !== 'true') {
-      const webhookUrl = `${renderUrl.replace(/\/$/, '')}/webhook/frota`;
-      try {
-        const webhookOpts = { allowed_updates: ['message', 'callback_query'] };
-        if (process.env.TELEGRAM_WEBHOOK_SECRET) {
-          webhookOpts.secret_token = process.env.TELEGRAM_WEBHOOK_SECRET;
-        }
-        await bot.telegram.setWebhook(webhookUrl, webhookOpts);
-        log.info(`✅ Webhook único ZeroPaperFrota registado: ${webhookUrl}`);
-      } catch (err) {
-        log.warn(`Falha ao configurar webhook /webhook/frota, fallback polling: ${err.message}`);
-        await bot.telegram.deleteWebhook({ drop_pending_updates: false }).catch(() => {});
-        bot.launch({ allowedUpdates: ['message', 'callback_query'] }).catch((e) => log.error('Erro polling:', e.message));
-      }
-    } else {
-      log.info('A iniciar Telegraf Bot (@zeropaperfrotaBot) em Polling local...');
-      await bot.telegram.deleteWebhook({ drop_pending_updates: false }).catch(() => {});
-      bot.launch({ allowedUpdates: ['message', 'callback_query'] }).catch((e) => log.error('Erro polling:', e.message));
+    const webhookUrl = renderUrl ? `${renderUrl.replace(/\/$/, '')}/webhook/frota` : null;
+    await mountFleetWebhookTransport({
+      botInstance: bot,
+      webhookUrl,
+      webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || ''
+    });
+
+    if (process.env.NO_PROACTIVE_MONITOR !== 'true') {
+      startFleetProactiveMonitor(bot);
     }
-    startFleetProactiveMonitor(bot);
     log.info('🤖 ZeroPaperFrota Bot iniciado e pronto para receber mensagens!');
 
   } catch (err) {

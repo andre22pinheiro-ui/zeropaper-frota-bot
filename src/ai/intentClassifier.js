@@ -28,11 +28,12 @@ INTENÇÕES SUPORTADAS:
 - "stock_movement": Entrada ou consumo de stock (ex: "chegaram 10 filtros de óleo", "gastei 5 litros de óleo 15W40").
 - "route_calculate": Calcular rota rodoviária para pesados/autocarros (ex: "rota Porto para Lisboa", "caminho de Amarante para Braga").
 - "tacografo_audit": Auditoria de tempos de condução e pausas obrigatórias CE 561/2006 (ex: "tacógrafo 8.5 horas", "quantas pausas preciso para 9 horas de condução?").
+- "fleet_compliance": Formação CCP/CAM, Transporte Coletivo de Crianças (TCC Lei 13/2006), Smart Tacho Gen 2, GSR2/ADAS (BSIS/MOIS) e legislação pesada CE 561/2006 ou DRE.
 - "help": Pedido de ajuda, comandos ou funcionamento (ex: "ajuda", "como funciona?", "/help").
 
 SCHEMA JSON OBRIGATÓRIO:
 {
-  "intent": "fleet_status" | "vehicle_lookup" | "km_register" | "anomaly_report" | "hygiene_register" | "checklist_register" | "maintenance_register" | "stock_query" | "stock_movement" | "route_calculate" | "tacografo_audit" | "help",
+  "intent": "fleet_status" | "vehicle_lookup" | "km_register" | "anomaly_report" | "hygiene_register" | "checklist_register" | "maintenance_register" | "stock_query" | "stock_movement" | "route_calculate" | "tacografo_audit" | "fleet_compliance" | "help",
   "matricula": string | null,
   "km": number | null,
   "descricao": string,
@@ -188,6 +189,14 @@ function fallbackHeuristic(text) {
     return {
       intent: 'tacografo_audit',
       horas_conducao: hMatch ? parseFloat(hMatch[1].replace(',', '.')) : null,
+      descricao: text,
+      confidence: 0.9
+    };
+  }
+
+  if (/\b(tcc|gsr2?|adas|bsis|mois|revw|tpms|ddaw|edr|cam|cqm|13\/2006|2019\/2144|smart\s*tacho|vigilante|carrinha\s+escolar|repouso\s+(?:na\s+)?cabina|c[oó]digo\s+da\s+estrada|dre\.pt|leis?\s+(?:pesados|tr[aâ]nsito|rodovi[aá]ri))\b/i.test(t)) {
+    return {
+      intent: 'fleet_compliance',
       descricao: text,
       confidence: 0.9
     };

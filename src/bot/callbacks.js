@@ -4,6 +4,8 @@ import { consumePendingAction, cancelPendingAction } from '../workflows/pendingA
 import { identifyUser } from '../security/authorization.js';
 import { fleetService, APP_BASE_URL } from '../services/fleetService.js';
 import { routeService } from '../services/routeService.js';
+import { fleetComplianceService } from '../services/fleetComplianceService.js';
+import { buildShiftStartAnomalyAlert } from '../services/fleetProactiveService.js';
 import { kmService } from '../services/kmService.js';
 import { anomalyService } from '../services/anomalyService.js';
 import { hygieneService } from '../services/hygieneService.js';
@@ -42,6 +44,20 @@ const QUICK_FLEET_ACTIONS = {
   }),
   btn_tacho_90: async () => ({
     text: routeService.handleTacografo('9')
+  }),
+  btn_fleet_tcc: async () => ({
+    text: fleetComplianceService.formatModuloTcc()
+  }),
+  btn_fleet_gsr2: async () => ({
+    text: fleetComplianceService.formatModuloGsr2()
+  }),
+  btn_fleet_leis: async () => ({
+    text: fleetComplianceService.formatDreHeavyLinks()
+  }),
+  btn_shift_anomalies: async () => ({
+    text:
+      (await buildShiftStartAnomalyAlert()) ||
+      '✅ *Abertura de Turno:* Sem anomalias abertas na frota neste momento.'
   })
 };
 

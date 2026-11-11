@@ -11,6 +11,7 @@ import { checklistService } from '../services/checklistService.js';
 import { maintenanceService } from '../services/maintenanceService.js';
 import { stockService } from '../services/stockService.js';
 import { routeService } from '../services/routeService.js';
+import { fleetComplianceService } from '../services/fleetComplianceService.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('Dispatcher');
@@ -76,6 +77,12 @@ export async function dispatchMessage(text, ctx) {
     const tachoOut = routeService.handleTacografo(classified.horas_conducao ?? '');
     recordExecution(idempotencyKey, { text: tachoOut });
     return { text: tachoOut, keyboard: null };
+  }
+
+  if (classified.intent === 'fleet_compliance') {
+    const complianceOut = fleetComplianceService.consultFleetCompliance(text);
+    recordExecution(idempotencyKey, { text: complianceOut });
+    return { text: complianceOut, keyboard: null };
   }
 
   if (classified.intent === 'vehicle_lookup' && classified.matricula) {
@@ -232,6 +239,7 @@ export async function dispatchMessage(text, ctx) {
       `• *Stock:* "Chegaram 10 filtros de óleo" ou \`/stock\`\n` +
       `• *Rotas Pesados:* \`/rota Porto para Lisboa\`\n` +
       `• *Tacógrafo CE 561:* \`/tacografo 8.5\`\n` +
+      `• *Formação & Leis PT/UE:* \`/tcc\`, \`/gsr2\`, \`/leis\`\n` +
       `• *Estado:* \`/frota\` — Resumo de todas as viaturas e alertas\n\n` +
       `🔒 _Operador Ativo: ${user.name} (${user.role})_`,
     keyboard: null

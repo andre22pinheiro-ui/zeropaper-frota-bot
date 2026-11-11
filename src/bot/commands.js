@@ -3,6 +3,7 @@ import { Markup } from 'telegraf';
 import { fleetService, APP_BASE_URL } from '../services/fleetService.js';
 import { stockService } from '../services/stockService.js';
 import { routeService } from '../services/routeService.js';
+import { fleetComplianceService } from '../services/fleetComplianceService.js';
 import { identifyUser, authorizeUserByAdmin, listAuthorizedUsers } from '../security/authorization.js';
 import { dispatchMessage } from '../ai/dispatcher.js';
 
@@ -26,6 +27,14 @@ export function buildFleetCockpitKeyboard() {
     [
       Markup.button.callback('⏱️ Tacógrafo 4.5h', 'btn_tacho_45'),
       Markup.button.callback('⏱️ Tacógrafo 9.0h', 'btn_tacho_90')
+    ],
+    [
+      Markup.button.callback('🎓 Formação TCC', 'btn_fleet_tcc'),
+      Markup.button.callback('🛡️ GSR2 / ADAS', 'btn_fleet_gsr2')
+    ],
+    [
+      Markup.button.callback('⚖️ Leis & DRE', 'btn_fleet_leis'),
+      Markup.button.callback('🚨 Avarias Turno', 'btn_shift_anomalies')
     ]
   ]);
 }
@@ -61,6 +70,7 @@ export function registerCommands(bot) {
       `• \`/stock\` — Consulta de inventário de peças e óleo\n` +
       `• \`/rota ORIGEM para DESTINO\` — Rota pesados (ORS driving-hgv)\n` +
       `• \`/tacografo HORAS\` — Auditoria legal CE 561/2006\n` +
+      `• \`/tcc [tema]\`, \`/gsr2\`, \`/leis\` — Formação TCC (Lei 13/2006), ADAS e CE\n` +
       `• \`/ajuda\` — Guia completo de utilização\n\n` +
       `🌐 [Aceder ao AppFrota Web](${APP_BASE_URL})`,
       buildFleetCockpitKeyboard()
@@ -168,6 +178,35 @@ export function registerCommands(bot) {
     if (!user) return ctx.reply('⛔ Utilizador não autorizado.');
     const args = (ctx.message?.text || '').replace(/^\/tacografo\s*/i, '').trim();
     const out = routeService.handleTacografo(args);
+    await ctx.replyWithMarkdown(out);
+  });
+
+  // /tcc & /cam (Formação TCC Lei 13/2006, Smart Tacho Gen 2, UFCD-TCC-01..03)
+  bot.command(['tcc', 'cam'], async (ctx) => {
+    const user = await identifyUser(ctx.from?.id, ctx.from?.first_name);
+    if (!user) return ctx.reply('⛔ Utilizador não autorizado.');
+    const args = (ctx.message?.text || '').replace(/^\/(tcc|cam)\s*/i, '').trim();
+    const out = args
+      ? fleetComplianceService.consultFleetCompliance(args)
+      : fleetComplianceService.formatPlanoFormacaoCompleto();
+    await ctx.replyWithMarkdown(out);
+  });
+
+  // /gsr2 (Sistemas ADAS & Segurança Veicular UE 2019/2144)
+  bot.command('gsr2', async (ctx) => {
+    const user = await identifyUser(ctx.from?.id, ctx.from?.first_name);
+    if (!user) return ctx.reply('⛔ Utilizador não autorizado.');
+    await ctx.replyWithMarkdown(fleetComplianceService.formatModuloGsr2());
+  });
+
+  // /leis & /lei (Código da Estrada pesados, TAS 0,20 g/l e links DRE)
+  bot.command(['leis', 'lei'], async (ctx) => {
+    const user = await identifyUser(ctx.from?.id, ctx.from?.first_name);
+    if (!user) return ctx.reply('⛔ Utilizador não autorizado.');
+    const args = (ctx.message?.text || '').replace(/^\/(leis|lei)\s*/i, '').trim();
+    const out = args
+      ? fleetComplianceService.consultFleetCompliance(args)
+      : fleetComplianceService.formatDreHeavyLinks();
     await ctx.replyWithMarkdown(out);
   });
 

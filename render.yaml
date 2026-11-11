@@ -1,3 +1,6 @@
+# ZeroPaperFrota Bot (@zeropaperfrotaBot) — Serviço Cloud-Native Dedicado
+# Infraestrutura Render alocada: https://telegram-master-bot-17bj.onrender.com (reaproveitado do serviço secundário)
+# Repositório GitHub: andre22pinheiro-ui/zeropaper-frota-bot | Webhook único: /webhook/frota
 services:
   - type: web
     name: zeropaper-frota-bot
@@ -27,6 +30,8 @@ services:
         sync: false
       - key: APP_BASE_URL
         value: "https://appfrota-ten.vercel.app"
+      - key: ROTABUS_WEB_URL
+        value: "https://smooth-bus-routes.vercel.app"
       - key: LOG_LEVEL
         value: "info"
 

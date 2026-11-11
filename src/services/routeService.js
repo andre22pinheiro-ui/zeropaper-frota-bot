@@ -1,6 +1,8 @@
 // src/services/routeService.js — Roteamento Pesados (ORS driving-hgv) & Auditoria Tacógrafo CE 561/2006
 import axios from 'axios';
 import { createLogger } from '../utils/logger.js';
+import { evaluateDrivingLimitAlert } from './fleetProactiveService.js';
+import { amaranteHeavyMapService } from './amaranteHeavyMapService.js';
 
 const log = createLogger('RouteService');
 
@@ -150,6 +152,13 @@ export async function handleRota(args = '') {
   texto += `🌐 [Abrir rota interativa no RotaBus](${res.rotabusUrl})\n`;
   texto += `📲 [Descarregar APK Android](${ROTABUS_APK_URL})`;
 
+  if (amaranteHeavyMapService.isAmaranteQuery(`${origem} ${destino}`)) {
+    const mapNote = amaranteHeavyMapService.formatAmaranteHeavyNote();
+    if (mapNote) {
+      texto += `\n\n${mapNote}`;
+    }
+  }
+
   return texto;
 }
 
@@ -166,6 +175,9 @@ export function handleTacografo(args = '') {
   const res = calcularTacografo(horasStr);
   if (!res) return '❌ Valor inválido. Usa um número de horas, ex: `/tacografo 8.5`';
 
+  const proactiveAlert =
+    res.horasConducao <= 4.5 ? evaluateDrivingLimitAlert(res.horasConducao * 60) : null;
+
   return (
     `📋 *Relatório de Tacógrafo Digital (CE 561/2006 & UE 165/2014):*\n\n` +
     `⏱️ Horas de condução registadas: **${res.horasConducao}h**\n` +
@@ -173,7 +185,8 @@ export function handleTacografo(args = '') {
     `⏳ Tempo total de paragem: **${res.tempoPausaMin} min**\n` +
     `🏁 Tempo total decorrido: **${res.tempoTotalViagem}**\n` +
     `🚦 Condução restante antes da próxima pausa: **${res.tempoRestanteAtePausa}**\n\n` +
-    `${res.legal}\n\n` +
+    `${res.legal}` +
+    `${proactiveAlert ? `\n\n${proactiveAlert.message}` : ''}\n\n` +
     `_Enquadramento Legal PT/UE: Reg. (CE) 561/2006 e (UE) 165/2014 | Código da Estrada (DL 114/94), DL 169/2009 e Lei 27/2010. Pausa de 45m pode ser fracionada em 15m seguidos de 30m (nunca ao contrário); máximo 56h/semana e 90h/quinzena._`
   );
 }
