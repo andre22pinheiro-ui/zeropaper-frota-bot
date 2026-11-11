@@ -14,9 +14,14 @@ export async function mountFleetWebhookTransport({
   webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET || '',
   usePolling = process.env.USE_POLLING === 'true',
   isCloudEnv = Boolean(process.env.RENDER || process.env.NODE_ENV === 'production'),
+  hasBotToken = true,
   sleepFn = defaultSleep
 }) {
   if (webhookUrl && !usePolling) {
+    if (!hasBotToken) {
+      log.error('Webhook /webhook/frota em espera: TELEGRAM_FROTAS_TOKEN ausente nas Environment Variables do Render.');
+      return { mode: 'misconfigured', reason: 'MISSING_TELEGRAM_FROTAS_TOKEN', webhookUrl };
+    }
     if (!botInstance.botInfo && typeof botInstance.telegram?.getMe === 'function') {
       try {
         botInstance.botInfo = await botInstance.telegram.getMe();

@@ -15,27 +15,103 @@ import { DatabaseError } from '../utils/errors.js';
 
 const log = createLogger('SupabaseClient');
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const MISSING_ENV_MSG =
+  'Configuração Supabase ausente (SUPABASE_URL e/ou SUPABASE_SERVICE_ROLE_KEY por definir no ambiente).';
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  log.error('Configuração crítica ausente: SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não definidos no .env!');
+let cachedClient = null;
+let cachedSignature = '';
+let missingLogged = false;
+
+export function getSupabaseMissingEnv() {
+  const missing = [];
+  if (!process.env.SUPABASE_URL) missing.push('SUPABASE_URL');
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  return missing;
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false
-  },
-  db: {
-    schema: 'public'
+export function isSupabaseConfigured() {
+  return getSupabaseMissingEnv().length === 0;
+}
+
+function getSupabaseClient() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    if (!missingLogged) {
+      missingLogged = true;
+      log.error('Configuração crítica ausente: SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não definidos!');
+    }
+    return null;
   }
-});
+
+  const sig = `${url}|${key}`;
+  if (!cachedClient || cachedSignature !== sig) {
+    cachedClient = createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      },
+      db: {
+        schema: 'public'
+      }
+    });
+    cachedSignature = sig;
+  }
+  return cachedClient;
+}
+
+function createUnconfiguredQueryStub(message = MISSING_ENV_MSG) {
+  const payload = { data: null, error: { message } };
+  const stub = new Proxy(() => stub, {
+    get(_target, prop) {
+      if (prop === 'then') {
+        return (onFulfilled, onRejected) => Promise.resolve(payload).then(onFulfilled, onRejected);
+      }
+      if (prop === 'catch') {
+        return (onRejected) => Promise.resolve(payload).catch(onRejected);
+      }
+      if (prop === 'finally') {
+        return (onFinally) => Promise.resolve(payload).finally(onFinally);
+      }
+      return () => stub;
+    },
+    apply() {
+      return stub;
+    }
+  });
+  return stub;
+}
+
+export const supabase = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      const client = getSupabaseClient();
+      if (client) {
+        const val = client[prop];
+        return typeof val === 'function' ? val.bind(client) : val;
+      }
+      if (prop === 'from') {
+        return () => createUnconfiguredQueryStub();
+      }
+      if (prop === 'rpc') {
+        return () => createUnconfiguredQueryStub();
+      }
+      return undefined;
+    }
+  }
+);
 
 /**
  * Verifica a saúde da ligação executando um SELECT simples
  */
 export async function checkDatabaseHealth() {
+  if (!isSupabaseConfigured()) {
+    return {
+      ok: false,
+      error: `MISSING_ENV: ${getSupabaseMissingEnv().join(', ')}`
+    };
+  }
   try {
     const start = Date.now();
     const { count, error } = await supabase

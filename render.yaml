@@ -1,5 +1,5 @@
 # ZeroPaperFrota Bot (@zeropaperfrotaBot) — Serviço Cloud-Native Dedicado
-# Infraestrutura Render alocada: https://telegram-master-bot-17bj.onrender.com (reaproveitado do serviço secundário)
+# Serviços Render dedicados: https://zeropaper-frota-bot.onrender.com (primário) & https://zeropaper-frota-bot-0h2h.onrender.com (réplica/Blueprint)
 # Repositório GitHub: andre22pinheiro-ui/zeropaper-frota-bot | Webhook único: /webhook/frota
 services:
   - type: web

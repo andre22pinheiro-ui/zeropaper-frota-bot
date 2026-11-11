@@ -13,10 +13,11 @@ import express from 'express';
 import { bot } from './src/bot/telegram.js';
 import { mountFleetWebhookTransport } from './src/services/fleetWebhookTransport.js';
 import { startFleetProactiveMonitor, stopFleetProactiveMonitor } from './src/services/fleetProactiveService.js';
-import { checkDatabaseHealth } from './src/database/supabase.js';
+import { checkDatabaseHealth, getSupabaseMissingEnv } from './src/database/supabase.js';
 import { createLogger } from './src/utils/logger.js';
 
-const REPURPOSED_RENDER_URL = 'https://telegram-master-bot-17bj.onrender.com';
+const PRIMARY_RENDER_URL = 'https://zeropaper-frota-bot.onrender.com';
+const MIRROR_RENDER_URL = 'https://zeropaper-frota-bot-0h2h.onrender.com';
 
 const log = createLogger('Server');
 
@@ -25,19 +26,38 @@ const PORT = process.env.PORT || 3001;
 
 app.use(express.json());
 
+function hasBotToken() {
+  return Boolean(process.env.TELEGRAM_FROTAS_TOKEN || process.env.TELEGRAM_BOT_TOKEN);
+}
+
+function getMissingCriticalEnv() {
+  const missing = [...getSupabaseMissingEnv()];
+  if (!hasBotToken()) missing.push('TELEGRAM_FROTAS_TOKEN');
+  return missing;
+}
+
+function getActiveRenderUrl() {
+  return (process.env.RENDER_EXTERNAL_URL || process.env.WEBHOOK_BASE_URL || PRIMARY_RENDER_URL).replace(/\/$/, '');
+}
+
 // Endpoint de Informação
 app.get('/', (req, res) => {
+  const missingEnv = getMissingCriticalEnv();
   res.json({
     service: 'zeropaper-frota-bot',
     name: 'ZeroPaperFrota Dedicated Bot',
     version: '1.0.0',
-    status: 'online',
+    status: missingEnv.length === 0 ? 'online' : 'misconfigured',
+    activeUrl: getActiveRenderUrl(),
+    renderCluster: [PRIMARY_RENDER_URL, MIRROR_RENDER_URL],
+    missingEnv,
     timestamp: new Date().toISOString()
   });
 });
 
 // Endpoint de Healthcheck rápido para Monitorização e Render (<5s readiness)
 app.get('/health', async (req, res) => {
+  const missingEnv = getMissingCriticalEnv();
   let dbHealth;
   try {
     dbHealth = await Promise.race([
@@ -49,12 +69,19 @@ app.get('/health', async (req, res) => {
   }
 
   res.status(200).json({
-    status: dbHealth.ok ? 'healthy' : 'degraded',
+    status: dbHealth.ok && missingEnv.length === 0 ? 'healthy' : 'degraded',
     uptimeSeconds: Math.floor(process.uptime()),
+    missingEnv,
     database: dbHealth,
+    render: {
+      activeUrl: getActiveRenderUrl(),
+      primaryUrl: PRIMARY_RENDER_URL,
+      mirrorUrl: MIRROR_RENDER_URL
+    },
     bot: {
       username: 'zeropaperfrotaBot',
-      id: 9280427698
+      id: 9280427698,
+      tokenConfigured: hasBotToken()
     },
     timestamp: new Date().toISOString()
   });
@@ -62,6 +89,9 @@ app.get('/health', async (req, res) => {
 
 // Endpoint oficial de Webhook Cloud-Native (/webhook/frota)
 app.post('/webhook/frota', async (req, res) => {
+  if (!hasBotToken()) {
+    return res.status(503).json({ error: 'TELEGRAM_FROTAS_TOKEN not configured' });
+  }
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (secret && req.get('x-telegram-bot-api-secret-token') !== secret) {
     return res.status(401).json({ error: 'Invalid webhook secret token' });
@@ -118,22 +148,28 @@ async function start() {
       })
       .catch((err) => log.error('❌ Erro ao verificar Supabase:', err.message));
 
-    // 4. Keep-Alive HTTP Render (serviço dedicado telegram-master-bot-17bj.onrender.com) a cada 10 minutos
+    // 4. Keep-Alive HTTP Render (serviços zeropaper-frota-bot e zeropaper-frota-bot-0h2h) a cada 10 minutos
     if (process.env.RENDER || process.env.NODE_ENV === 'production' || process.env.RENDER_EXTERNAL_URL) {
-      const keepAliveUrl = (process.env.RENDER_EXTERNAL_URL || REPURPOSED_RENDER_URL).replace(/\/$/, '');
+      const keepAliveTargets = [...new Set([getActiveRenderUrl(), PRIMARY_RENDER_URL, MIRROR_RENDER_URL])];
       setInterval(() => {
-        fetch(`${keepAliveUrl}/health`, { signal: AbortSignal.timeout(4000) }).catch(() => {});
+        for (const baseUrl of keepAliveTargets) {
+          fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(4000) }).catch(() => {});
+        }
       }, 10 * 60 * 1000).unref();
-      log.info(`📡 Keep-Alive Render ativo: ${keepAliveUrl}/health a cada 10 min.`);
+      log.info(`📡 Keep-Alive Render ativo a cada 10 min: ${keepAliveTargets.map((u) => `${u}/health`).join(' | ')}`);
     }
 
     // 5. Iniciar Bot Telegraf (@zeropaperfrotaBot): setWebhook Cloud-Native com retry 429 (sem fallback Polling na nuvem)
-    const renderUrl = process.env.RENDER_EXTERNAL_URL || process.env.WEBHOOK_BASE_URL;
+    const renderUrl =
+      process.env.RENDER_EXTERNAL_URL ||
+      process.env.WEBHOOK_BASE_URL ||
+      (process.env.RENDER || process.env.NODE_ENV === 'production' ? PRIMARY_RENDER_URL : null);
     const webhookUrl = renderUrl ? `${renderUrl.replace(/\/$/, '')}/webhook/frota` : null;
     await mountFleetWebhookTransport({
       botInstance: bot,
       webhookUrl,
-      webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || ''
+      webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
+      hasBotToken: hasBotToken()
     });
 
     if (process.env.NO_PROACTIVE_MONITOR !== 'true') {
