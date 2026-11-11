@@ -91,3 +91,4 @@ test('Comandos do Bot: Registo e Execução de Comandos com Mock Context', async
   await handlers.get('stock')(stockCtx);
   assert.ok(stockReply.includes('Inventário de Stock'));
 });
+

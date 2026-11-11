@@ -40,3 +40,4 @@ test('Idempotência: Registo e deteção de pedidos repetidos', () => {
   assert.equal(isAlreadyProcessed(uniqueKey), true);
   assert.deepEqual(getPreviousResult(uniqueKey), mockResult);
 });
+

@@ -53,3 +53,4 @@ test('PendingActions: Cancelamento explícito de ação', () => {
   // Já não existe
   assert.equal(getPendingAction(action.id, userId), null);
 });
+

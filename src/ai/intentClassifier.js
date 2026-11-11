@@ -21,11 +21,13 @@ INTENÇÕES SUPORTADAS:
 - "maintenance_register": Mudança de peças, revisão de oficina, despesas (ex: "mudei calços de travão na 39-HZ-66 custo 150 euros").
 - "stock_query": Consulta de existências de peças, óleos ou filtros (ex: "quanto óleo temos?", "ver stock de filtros").
 - "stock_movement": Entrada ou consumo de stock (ex: "chegaram 10 filtros de óleo", "gastei 5 litros de óleo 15W40").
+- "route_calculate": Calcular rota rodoviária para pesados/autocarros (ex: "rota Porto para Lisboa", "caminho de Amarante para Braga").
+- "tacografo_audit": Auditoria de tempos de condução e pausas obrigatórias CE 561/2006 (ex: "tacógrafo 8.5 horas", "quantas pausas preciso para 9 horas de condução?").
 - "help": Pedido de ajuda, comandos ou funcionamento (ex: "ajuda", "como funciona?", "/help").
 
 SCHEMA JSON OBRIGATÓRIO:
 {
-  "intent": "fleet_status" | "vehicle_lookup" | "km_register" | "anomaly_report" | "hygiene_register" | "checklist_register" | "maintenance_register" | "stock_query" | "stock_movement" | "help",
+  "intent": "fleet_status" | "vehicle_lookup" | "km_register" | "anomaly_report" | "hygiene_register" | "checklist_register" | "maintenance_register" | "stock_query" | "stock_movement" | "route_calculate" | "tacografo_audit" | "help",
   "matricula": string | null,
   "km": number | null,
   "descricao": string,
@@ -36,6 +38,9 @@ SCHEMA JSON OBRIGATÓRIO:
   "item_stock": string | null,
   "quantidade_stock": number | null,
   "operacao_stock": "adicionar" | "consumir" | null,
+  "origem": string | null,
+  "destino": string | null,
+  "horas_conducao": number | null,
   "confidence": number
 }`;
 
@@ -159,6 +164,27 @@ function fallbackHeuristic(text) {
       item_stock: 'óleo',
       descricao: text,
       confidence: 0.8
+    };
+  }
+
+  const rotaMatch = text.match(/(?:rota|trajeto|caminho)\s+(?:de\s+)?(.+?)\s+para\s+(.+)/i);
+  if (rotaMatch) {
+    return {
+      intent: 'route_calculate',
+      origem: rotaMatch[1].trim(),
+      destino: rotaMatch[2].trim(),
+      descricao: text,
+      confidence: 0.9
+    };
+  }
+
+  if (/\b(tac[oó]grafo|ce\s*561|horas\s+de\s+condu[cç][aã]o|pausa\s+obrigat[oó]ria)\b/i.test(t)) {
+    const hMatch = text.match(/(\d+(?:[.,]\d+)?)/);
+    return {
+      intent: 'tacografo_audit',
+      horas_conducao: hMatch ? parseFloat(hMatch[1].replace(',', '.')) : null,
+      descricao: text,
+      confidence: 0.9
     };
   }
 

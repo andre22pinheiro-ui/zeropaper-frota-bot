@@ -1,6 +1,7 @@
 // src/bot/commands.js — Comandos Oficiais de Barra (/) do ZeroPaperFrota Bot
 import { fleetService, APP_BASE_URL } from '../services/fleetService.js';
 import { stockService } from '../services/stockService.js';
+import { routeService } from '../services/routeService.js';
 import { identifyUser, authorizeUserByAdmin, listAuthorizedUsers } from '../security/authorization.js';
 import { dispatchMessage } from '../ai/dispatcher.js';
 
@@ -33,6 +34,8 @@ export function registerCommands(bot) {
       `• \`/vistoria\` — Realizar checklist diária\n` +
       `• \`/oficina\` — Serviços e intervenções\n` +
       `• \`/stock\` — Consulta de inventário de peças e óleo\n` +
+      `• \`/rota ORIGEM para DESTINO\` — Rota pesados (ORS driving-hgv)\n` +
+      `• \`/tacografo HORAS\` — Auditoria legal CE 561/2006\n` +
       `• \`/ajuda\` — Guia completo de utilização\n\n` +
       `🌐 [Aceder ao AppFrota Web](${APP_BASE_URL})`
     );
@@ -122,6 +125,24 @@ export function registerCommands(bot) {
   bot.command('oficina', async (ctx) => {
     const res = await dispatchMessage(ctx.message.text, ctx);
     await ctx.replyWithMarkdown(res.text, res.keyboard ? res.keyboard : undefined);
+  });
+
+  // /rota (OpenRouteService driving-hgv)
+  bot.command('rota', async (ctx) => {
+    const user = await identifyUser(ctx.from?.id, ctx.from?.first_name);
+    if (!user) return ctx.reply('⛔ Utilizador não autorizado.');
+    const args = (ctx.message?.text || '').replace(/^\/rota\s*/i, '').trim();
+    const out = await routeService.handleRota(args);
+    await ctx.replyWithMarkdown(out);
+  });
+
+  // /tacografo (Regulamento CE 561/2006)
+  bot.command('tacografo', async (ctx) => {
+    const user = await identifyUser(ctx.from?.id, ctx.from?.first_name);
+    if (!user) return ctx.reply('⛔ Utilizador não autorizado.');
+    const args = (ctx.message?.text || '').replace(/^\/tacografo\s*/i, '').trim();
+    const out = routeService.handleTacografo(args);
+    await ctx.replyWithMarkdown(out);
   });
 
   // /autorizar (Admin only)

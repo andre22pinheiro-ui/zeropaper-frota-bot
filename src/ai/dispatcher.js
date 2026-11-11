@@ -10,6 +10,7 @@ import { hygieneService } from '../services/hygieneService.js';
 import { checklistService } from '../services/checklistService.js';
 import { maintenanceService } from '../services/maintenanceService.js';
 import { stockService } from '../services/stockService.js';
+import { routeService } from '../services/routeService.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('Dispatcher');
@@ -60,6 +61,21 @@ export async function dispatchMessage(text, ctx) {
     const summary = await stockService.getStockSummary(user);
     recordExecution(idempotencyKey, { text: summary });
     return { text: summary, keyboard: null };
+  }
+
+  if (classified.intent === 'route_calculate') {
+    const routeArgs = classified.origem && classified.destino
+      ? `${classified.origem} para ${classified.destino}`
+      : text;
+    const out = await routeService.handleRota(routeArgs);
+    recordExecution(idempotencyKey, { text: out });
+    return { text: out, keyboard: null };
+  }
+
+  if (classified.intent === 'tacografo_audit') {
+    const tachoOut = routeService.handleTacografo(classified.horas_conducao ?? '');
+    recordExecution(idempotencyKey, { text: tachoOut });
+    return { text: tachoOut, keyboard: null };
   }
 
   if (classified.intent === 'vehicle_lookup' && classified.matricula) {
@@ -214,6 +230,8 @@ export async function dispatchMessage(text, ctx) {
       `• *Vistoria:* "Checklist da 39-HZ-66 tudo ok"\n` +
       `• *Oficina:* "Mudança de pastilhas na 12-XE-34 custo 120€"\n` +
       `• *Stock:* "Chegaram 10 filtros de óleo" ou \`/stock\`\n` +
+      `• *Rotas Pesados:* \`/rota Porto para Lisboa\`\n` +
+      `• *Tacógrafo CE 561:* \`/tacografo 8.5\`\n` +
       `• *Estado:* \`/frota\` — Resumo de todas as viaturas e alertas\n\n` +
       `🔒 _Operador Ativo: ${user.name} (${user.role})_`,
     keyboard: null

@@ -46,3 +46,4 @@ test('Telegram Markdown: Fallback automático em caso de entidade inválida', as
   assert.equal(replyFallbackCalled, true, 'O fallback para texto simples DEVE ser acionado');
   assert.ok(!sentPlainText.includes('_'), 'Os underscores devem ser removidos no envio de fallback');
 });
+

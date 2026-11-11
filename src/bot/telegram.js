@@ -8,12 +8,12 @@ import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('TelegramBot');
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const BOT_TOKEN = process.env.TELEGRAM_FROTAS_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 if (!BOT_TOKEN) {
-  log.error('TELEGRAM_BOT_TOKEN não configurado no .env!');
+  log.error('TELEGRAM_FROTAS_TOKEN / TELEGRAM_BOT_TOKEN não configurado no .env!');
 }
 
 export const bot = new Telegraf(BOT_TOKEN);
@@ -77,7 +77,7 @@ async function analyzePhoto(ctx) {
           { text: prompt }
         ]
       }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 600 }
+      generationConfig: { temperature: 0.0, maxOutputTokens: 600 }
     };
 
     const gRes = await axios.post(

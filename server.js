@@ -65,15 +65,65 @@ async function start() {
       log.info(`🚀 Servidor HTTP ativo na porta ${PORT}`);
     });
 
-    // Iniciar Bot Telegraf (Long Polling)
-    log.info('A iniciar Telegraf Bot (@zeropaperfrotaBot)...');
-    await bot.launch();
+    // Endpoint oficial de Webhook Cloud-Native (/webhook/frota)
+    app.post('/webhook/frota', async (req, res) => {
+      const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+      if (secret && req.get('x-telegram-bot-api-secret-token') !== secret) {
+        return res.status(401).json({ error: 'Invalid webhook secret token' });
+      }
+      try {
+        await bot.handleUpdate(req.body, res);
+        if (!res.headersSent) {
+          res.status(200).json({ ok: true });
+        }
+      } catch (err) {
+        log.error('Erro ao processar /webhook/frota:', err.message);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Webhook processing error' });
+        }
+      }
+    });
+
+    // Keep-Alive HTTP Render a cada 10 minutos
+    if (process.env.RENDER || process.env.NODE_ENV === 'production' || process.env.RENDER_EXTERNAL_URL) {
+      const keepAliveUrl = (process.env.RENDER_EXTERNAL_URL || 'https://zeropaper-frota-bot.onrender.com').replace(/\/$/, '');
+      setInterval(() => {
+        fetch(`${keepAliveUrl}/health`).catch(() => {});
+      }, 10 * 60 * 1000).unref();
+      log.info(`📡 Keep-Alive Render ativo: ${keepAliveUrl}/health a cada 10 min.`);
+    }
+
+    // Iniciar Bot Telegraf (@zeropaperfrotaBot): Webhook em Cloud / Polling em Dev Local
+    const renderUrl = process.env.RENDER_EXTERNAL_URL || process.env.WEBHOOK_BASE_URL;
+    if (renderUrl && process.env.USE_POLLING !== 'true') {
+      const webhookUrl = `${renderUrl.replace(/\/$/, '')}/webhook/frota`;
+      try {
+        const webhookOpts = { allowed_updates: ['message', 'callback_query'] };
+        if (process.env.TELEGRAM_WEBHOOK_SECRET) {
+          webhookOpts.secret_token = process.env.TELEGRAM_WEBHOOK_SECRET;
+        }
+        await bot.telegram.setWebhook(webhookUrl, webhookOpts);
+        log.info(`✅ Webhook único ZeroPaperFrota registado: ${webhookUrl}`);
+      } catch (err) {
+        log.warn(`Falha ao configurar webhook /webhook/frota, fallback polling: ${err.message}`);
+        await bot.telegram.deleteWebhook({ drop_pending_updates: false }).catch(() => {});
+        await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
+      }
+    } else {
+      log.info('A iniciar Telegraf Bot (@zeropaperfrotaBot) em Polling local...');
+      await bot.telegram.deleteWebhook({ drop_pending_updates: false }).catch(() => {});
+      await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
+    }
     log.info('🤖 ZeroPaperFrota Bot iniciado e pronto para receber mensagens!');
 
     // Tratamento de Encerramento Gracioso
     const gracefulShutdown = (signal) => {
       log.info(`Recebido ${signal}. A encerrar serviços graciosamente...`);
-      bot.stop(signal);
+      try {
+        bot.stop(signal);
+      } catch {
+        // Ignora caso o bot esteja em modo Webhook sem polling ativo
+      }
       server.close(() => {
         log.info('Servidor HTTP encerrado. Processo terminado.');
         process.exit(0);
