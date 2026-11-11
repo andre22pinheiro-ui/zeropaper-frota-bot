@@ -1,9 +1,34 @@
 // src/bot/commands.js — Comandos Oficiais de Barra (/) do ZeroPaperFrota Bot
+import { Markup } from 'telegraf';
 import { fleetService, APP_BASE_URL } from '../services/fleetService.js';
 import { stockService } from '../services/stockService.js';
 import { routeService } from '../services/routeService.js';
 import { identifyUser, authorizeUserByAdmin, listAuthorizedUsers } from '../security/authorization.js';
 import { dispatchMessage } from '../ai/dispatcher.js';
+
+const ROTABUS_WEB_URL = process.env.ROTABUS_WEB_URL || 'https://smooth-bus-routes.vercel.app';
+const ROTABUS_APK_URL = `${ROTABUS_WEB_URL}/rotabus.apk`;
+
+export function buildFleetCockpitKeyboard() {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.webApp('🚛 AppFrota Web', APP_BASE_URL),
+      Markup.button.webApp('🚌 RotaBus GPS', ROTABUS_WEB_URL)
+    ],
+    [
+      Markup.button.callback('📊 Estado da Frota', 'act_frota_status'),
+      Markup.button.url('📲 Download APK', ROTABUS_APK_URL)
+    ],
+    [
+      Markup.button.callback('🚛 Porto ➔ Lisboa', 'frota_porto_lisboa'),
+      Markup.button.callback('🚛 Amarante ➔ Porto', 'frota_amarante_porto')
+    ],
+    [
+      Markup.button.callback('⏱️ Tacógrafo 4.5h', 'btn_tacho_45'),
+      Markup.button.callback('⏱️ Tacógrafo 9.0h', 'btn_tacho_90')
+    ]
+  ]);
+}
 
 export function registerCommands(bot) {
   // /start
@@ -37,7 +62,8 @@ export function registerCommands(bot) {
       `• \`/rota ORIGEM para DESTINO\` — Rota pesados (ORS driving-hgv)\n` +
       `• \`/tacografo HORAS\` — Auditoria legal CE 561/2006\n` +
       `• \`/ajuda\` — Guia completo de utilização\n\n` +
-      `🌐 [Aceder ao AppFrota Web](${APP_BASE_URL})`
+      `🌐 [Aceder ao AppFrota Web](${APP_BASE_URL})`,
+      buildFleetCockpitKeyboard()
     );
   });
 
@@ -143,6 +169,19 @@ export function registerCommands(bot) {
     const args = (ctx.message?.text || '').replace(/^\/tacografo\s*/i, '').trim();
     const out = routeService.handleTacografo(args);
     await ctx.replyWithMarkdown(out);
+  });
+
+  // /apk, /rotabus, /appfrota (Acesso direto WebApps & Download APK RotaBus)
+  bot.command(['apk', 'apks', 'rotabus', 'appfrota'], async (ctx) => {
+    const user = await identifyUser(ctx.from?.id, ctx.from?.first_name);
+    if (!user) return ctx.reply('⛔ Utilizador não autorizado.');
+    await ctx.replyWithMarkdown(
+      `🚛 *Ecossistema Digital ZeroPaperFrota & RotaBus:*\n\n` +
+      `• 🌐 *AppFrota Web:* ${APP_BASE_URL}\n` +
+      `• 🚌 *RotaBus GPS Pesados:* ${ROTABUS_WEB_URL}\n` +
+      `• 📲 *Download APK Android:* ${ROTABUS_APK_URL}`,
+      buildFleetCockpitKeyboard()
+    );
   });
 
   // /autorizar (Admin only)

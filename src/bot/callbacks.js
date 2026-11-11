@@ -1,5 +1,9 @@
 // src/bot/callbacks.js — Tratamento de Confirmações e Cancelamentos Interativos (2 Passos)
+import { Markup } from 'telegraf';
 import { consumePendingAction, cancelPendingAction } from '../workflows/pendingActions.js';
+import { identifyUser } from '../security/authorization.js';
+import { fleetService, APP_BASE_URL } from '../services/fleetService.js';
+import { routeService } from '../services/routeService.js';
 import { kmService } from '../services/kmService.js';
 import { anomalyService } from '../services/anomalyService.js';
 import { hygieneService } from '../services/hygieneService.js';
@@ -9,12 +13,55 @@ import { stockService } from '../services/stockService.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('BotCallbacks');
+const ROTABUS_WEB_URL = process.env.ROTABUS_WEB_URL || 'https://smooth-bus-routes.vercel.app';
+const ROTABUS_APK_URL = `${ROTABUS_WEB_URL}/rotabus.apk`;
+
+const QUICK_FLEET_ACTIONS = {
+  act_frota_status: async () => ({
+    text: await fleetService.getFleetStatusReport(),
+    extra: Markup.inlineKeyboard([
+      [Markup.button.webApp('🚛 Abrir AppFrota Web', APP_BASE_URL)],
+      [Markup.button.callback('🔄 Atualizar Estado', 'act_frota_status')]
+    ])
+  }),
+  act_frotas: async () => ({
+    text: await fleetService.getFleetStatusReport(),
+    extra: Markup.inlineKeyboard([
+      [Markup.button.webApp('🚛 Abrir AppFrota Web', APP_BASE_URL), Markup.button.webApp('🚌 RotaBus GPS', ROTABUS_WEB_URL)],
+      [Markup.button.url('📲 Descarregar APK RotaBus', ROTABUS_APK_URL)]
+    ])
+  }),
+  frota_porto_lisboa: async () => ({
+    text: await routeService.handleRota('Porto para Lisboa')
+  }),
+  frota_amarante_porto: async () => ({
+    text: await routeService.handleRota('Amarante para Porto')
+  }),
+  btn_tacho_45: async () => ({
+    text: routeService.handleTacografo('4.5')
+  }),
+  btn_tacho_90: async () => ({
+    text: routeService.handleTacografo('9')
+  })
+};
 
 export async function handleCallbackQuery(ctx) {
   const data = ctx.callbackQuery?.data;
   const fromId = ctx.from?.id;
 
   if (!data || !fromId) return;
+
+  if (Object.prototype.hasOwnProperty.call(QUICK_FLEET_ACTIONS, data)) {
+    const user = await identifyUser(fromId, ctx.from?.first_name);
+    if (!user) {
+      await ctx.answerCbQuery('⛔ Utilizador não autorizado.').catch(() => {});
+      return;
+    }
+    await ctx.answerCbQuery('A processar...').catch(() => {});
+    const res = await QUICK_FLEET_ACTIONS[data]();
+    await ctx.replyWithMarkdown(res.text, res.extra ? res.extra : undefined);
+    return;
+  }
 
   // 1. Confirmação
   if (data.startsWith('confirm_')) {

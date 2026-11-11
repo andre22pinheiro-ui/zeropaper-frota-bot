@@ -1,7 +1,8 @@
 // tests/acceptance/botCommands.test.js — Testes de Aceitação de Comandos de Barra do Bot
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { registerCommands } from '../../src/bot/commands.js';
+import { registerCommands, buildFleetCockpitKeyboard } from '../../src/bot/commands.js';
+import { handleCallbackQuery } from '../../src/bot/callbacks.js';
 
 test('Comandos do Bot: Registo e Execução de Comandos com Mock Context', async () => {
   const handlers = new Map();
@@ -90,5 +91,50 @@ test('Comandos do Bot: Registo e Execução de Comandos com Mock Context', async
   };
   await handlers.get('stock')(stockCtx);
   assert.ok(stockReply.includes('Inventário de Stock'));
+
+  // 8. Teste dos novos atalhos /apk, /rotabus, /appfrota e cockpit
+  for (const cmd of ['apk', 'apks', 'rotabus', 'appfrota']) {
+    assert.ok(handlers.has(cmd), `Comando /${cmd} deve estar registado`);
+  }
+  const cockpit = buildFleetCockpitKeyboard();
+  assert.ok(JSON.stringify(cockpit).includes('frota_porto_lisboa'), 'Cockpit deve expor atalho frota_porto_lisboa');
+
+  // 9. Teste dos callbacks rápidos legados (@zeropaperfrotaBot) + isolamento autorização
+  const prevOrs = process.env.ORS_API_KEY;
+  const prevOpenRoute = process.env.OPENROUTESERVICE_API_KEY;
+  delete process.env.ORS_API_KEY;
+  delete process.env.OPENROUTESERVICE_API_KEY;
+  try {
+    let cbReply = '';
+    const okCbCtx = {
+      from: { id: 950415577, first_name: 'André' },
+      callbackQuery: { data: 'btn_tacho_45' },
+      answerCbQuery: async () => {},
+      replyWithMarkdown: async (text) => { cbReply = text; }
+    };
+    await handleCallbackQuery(okCbCtx);
+    assert.ok(cbReply.includes('CE 561/2006') && cbReply.includes('4.5'), 'Callback btn_tacho_45 deve gerar relatório CE 561/2006');
+
+    let routeReply = '';
+    await handleCallbackQuery({
+      ...okCbCtx,
+      callbackQuery: { data: 'frota_porto_lisboa' },
+      replyWithMarkdown: async (text) => { routeReply = text; }
+    });
+    assert.ok(routeReply.includes('Porto') && routeReply.includes('Lisboa'), 'Callback frota_porto_lisboa deve calcular rota Porto -> Lisboa');
+
+    let blockedAlert = '';
+    let blockedReplyCount = 0;
+    await handleCallbackQuery({
+      from: { id: 999999999, first_name: 'Intruso' },
+      callbackQuery: { data: 'act_frota_status' },
+      answerCbQuery: async (txt) => { blockedAlert = txt; },
+      replyWithMarkdown: async () => { blockedReplyCount++; }
+    });
+    assert.ok(blockedAlert.includes('não autorizado') && blockedReplyCount === 0, 'Intruso deve ser bloqueado nos callbacks rápidos');
+  } finally {
+    if (prevOrs !== undefined) process.env.ORS_API_KEY = prevOrs;
+    if (prevOpenRoute !== undefined) process.env.OPENROUTESERVICE_API_KEY = prevOpenRoute;
+  }
 });
 
