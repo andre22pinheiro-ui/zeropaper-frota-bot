@@ -97,11 +97,19 @@ export function calcularTacografo(horasConducao) {
   const hTotal = Math.floor(tempoTotalMin / 60);
   const mTotal = Math.round(tempoTotalMin % 60);
 
-  let legal = '✅ *Dentro do limite diário legal (máx. 9h00 — Reg. CE 561/2006)*';
+  let legal = '✅ *Dentro do limite diário legal (máx. 9h00 — Reg. CE 561/2006 & UE 165/2014)*';
+  const mod45 = parseFloat((h % 4.5).toFixed(4));
+  if (h >= 4.0 && h < 4.5) {
+    const minsLeft = Math.max(1, Math.round((4.5 - h) * 60));
+    legal = `⏳ *Dentro do limite diário legal — AVISO PROATIVO: faltam ${minsLeft} min para atingir 4h30 de condução contínua (CE 561/2006 | DL 169/2009 | Lei 27/2010)*`;
+  } else if (mod45 >= 4.0 && mod45 < 4.5 && h <= 9) {
+    const minsLeft = Math.max(1, Math.round((4.5 - mod45) * 60));
+    legal = `⏳ *Dentro do limite diário legal — AVISO PROATIVO: faltam ${minsLeft} min para a próxima pausa obrigatória de 45m (CE 561/2006)*`;
+  }
   if (h > 9 && h <= 10) {
-    legal = '⚠️ *Extensão diária de 10h (permitida no máx. 2x por semana — Reg. CE 561/2006)*';
+    legal = '⚠️ *Extensão diária de 10h (permitida no máx. 2x por semana — Reg. CE 561/2006 | Máx. 56h/semana e 90h/quinzena)*';
   } else if (h > 10) {
-    legal = '⛔ *INFRAÇÃO GRAVE: Excede o limite legal diário absoluto de 10h!*';
+    legal = '⛔ *INFRAÇÃO GRAVE (DL 169/2009 & Lei 27/2010): Excede o limite legal diário absoluto de 10h!*';
   }
 
   const restanteNum = h % 4.5 === 0 ? 0 : parseFloat((4.5 - (h % 4.5)).toFixed(1));
@@ -159,14 +167,14 @@ export function handleTacografo(args = '') {
   if (!res) return '❌ Valor inválido. Usa um número de horas, ex: `/tacografo 8.5`';
 
   return (
-    `📋 *Relatório de Tacógrafo Digital (CE 561/2006):*\n\n` +
+    `📋 *Relatório de Tacógrafo Digital (CE 561/2006 & UE 165/2014):*\n\n` +
     `⏱️ Horas de condução registadas: **${res.horasConducao}h**\n` +
     `🛑 Pausas obrigatórias (45 min): **${res.pausasObrigatorias}**\n` +
     `⏳ Tempo total de paragem: **${res.tempoPausaMin} min**\n` +
     `🏁 Tempo total decorrido: **${res.tempoTotalViagem}**\n` +
     `🚦 Condução restante antes da próxima pausa: **${res.tempoRestanteAtePausa}**\n\n` +
     `${res.legal}\n\n` +
-    `_Nota Legal: Pausa de 45m pode ser fracionada em 15 min seguidos de 30 min (nunca ao contrário)._`
+    `_Enquadramento Legal PT/UE: Reg. (CE) 561/2006 e (UE) 165/2014 | Código da Estrada (DL 114/94), DL 169/2009 e Lei 27/2010. Pausa de 45m pode ser fracionada em 15m seguidos de 30m (nunca ao contrário); máximo 56h/semana e 90h/quinzena._`
   );
 }
 

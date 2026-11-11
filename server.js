@@ -11,6 +11,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 import express from 'express';
 import { bot } from './src/bot/telegram.js';
+import { startFleetProactiveMonitor, stopFleetProactiveMonitor } from './src/services/fleetProactiveService.js';
 import { checkDatabaseHealth } from './src/database/supabase.js';
 import { createLogger } from './src/utils/logger.js';
 
@@ -114,11 +115,13 @@ async function start() {
       await bot.telegram.deleteWebhook({ drop_pending_updates: false }).catch(() => {});
       await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
     }
+    startFleetProactiveMonitor(bot);
     log.info('🤖 ZeroPaperFrota Bot iniciado e pronto para receber mensagens!');
 
     // Tratamento de Encerramento Gracioso
     const gracefulShutdown = (signal) => {
       log.info(`Recebido ${signal}. A encerrar serviços graciosamente...`);
+      stopFleetProactiveMonitor();
       try {
         bot.stop(signal);
       } catch {

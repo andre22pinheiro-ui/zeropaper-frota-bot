@@ -2,6 +2,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { routeService } from '../../src/services/routeService.js';
+import {
+  evaluateDrivingLimitAlert,
+  buildShiftStartAnomalyAlert,
+  buildShiftEndReminder
+} from '../../src/services/fleetProactiveService.js';
 import { registerCommands } from '../../src/bot/commands.js';
 import { dispatchMessage } from '../../src/ai/dispatcher.js';
 
@@ -74,5 +79,46 @@ test('Dispatcher interpreta pedidos em linguagem natural de Tacógrafo', async (
   });
   assert.ok(res.text.includes('9.5h'));
   assert.ok(res.text.includes('Extensão diária de 10h'));
+});
+
+test('Conformidade Tripla PT/UE + Proatividade Tacógrafo (30m/15m antes de 4h30 e Turno)', async () => {
+  const preLimit = routeService.calcularTacografo(4.1);
+  assert.ok(preLimit.legal.includes('Dentro do limite'));
+  assert.ok(preLimit.legal.includes('AVISO PROATIVO'));
+  assert.ok(preLimit.legal.includes('DL 169/2009'));
+
+  const md = routeService.handleTacografo('4.1');
+  assert.ok(md.includes('UE 165/2014'));
+  assert.ok(md.includes('DL 114/94'));
+  assert.ok(md.includes('Lei 27/2010'));
+  assert.ok(md.includes('56h/semana'));
+  assert.ok(md.includes('90h/quinzena'));
+
+  assert.equal(evaluateDrivingLimitAlert(120), null);
+
+  const w30 = evaluateDrivingLimitAlert(240);
+  assert.equal(w30.level, 'warning_30m');
+  assert.equal(w30.remainingMinutes, 30);
+  assert.ok(w30.message.includes('DL 169/2009'));
+
+  const u15 = evaluateDrivingLimitAlert(255);
+  assert.equal(u15.level, 'urgent_15m');
+  assert.equal(u15.remainingMinutes, 15);
+  assert.ok(u15.message.includes('15m + 30m'));
+
+  const crit = evaluateDrivingLimitAlert(270);
+  assert.equal(crit.level, 'critical');
+  assert.equal(crit.remainingMinutes, 0);
+
+  const shiftAlert = await buildShiftStartAnomalyAlert({
+    getPendingFn: async () => [{ matricula: '99-ZZ-01', descricao: 'Luz travão', prioridade: 'Alta', imobiliza: true }]
+  });
+  assert.ok(shiftAlert.includes('99-ZZ-01') && shiftAlert.includes('IMOBILIZADA'));
+
+  const emptyAlert = await buildShiftStartAnomalyAlert({ getPendingFn: async () => [] });
+  assert.equal(emptyAlert, null);
+
+  const endRem = buildShiftEndReminder();
+  assert.ok(endRem.includes('Higiene') && endRem.includes('90h/quinzena'));
 });
 

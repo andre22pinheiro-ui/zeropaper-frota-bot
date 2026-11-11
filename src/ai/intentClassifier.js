@@ -8,7 +8,12 @@ const log = createLogger('IntentClassifier');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
-const INTENT_SYSTEM_PROMPT = `És o Extrator Semântico e Classificador de Intenções do ZeroPaperFrota Bot.
+const INTENT_SYSTEM_PROMPT = `És o Extrator Semântico e Classificador de Intenções do ZeroPaperFrota Bot (temperature: 0.0 | Zero Alucinações).
+CONFORMIDADE NORMATIVA TRIPLA:
+- União Europeia: EU AI Act (Reg. UE 2024/1689), RGPD (Reg. UE 2016/679 — dados mínimos em logs), Reg. (CE) 561/2006 e Reg. (UE) 165/2014 (tacógrafo 4h30 / pausa 45m ou 15m+30m / diário 9h-10h / semanal 56h / quinzenal 90h).
+- República Portuguesa: Código da Estrada (DL 114/94), DL 169/2009 e Lei 27/2010 (fiscalização de tempos de condução e repouso).
+- Amarante & CIM Tâmega e Sousa: Corredores A4/Marão, EN15 e EN210 e frota real ZeroPaperFrota.
+
 A tua função é interpretar mensagens de utilizadores (motoristas, mecânicos, gestores) e devolver EXCLUSIVAMENTE um objeto JSON válido (sem código markdown envolvente).
 
 INTENÇÕES SUPORTADAS:
