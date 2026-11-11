@@ -33,13 +33,20 @@ app.get('/', (req, res) => {
   });
 });
 
-// Endpoint de Healthcheck para Monitorização e Render
+// Endpoint de Healthcheck rápido para Monitorização e Render (<5s readiness)
 app.get('/health', async (req, res) => {
-  const dbHealth = await checkDatabaseHealth();
-  const isHealthy = dbHealth.ok;
+  let dbHealth;
+  try {
+    dbHealth = await Promise.race([
+      checkDatabaseHealth(),
+      new Promise((resolve) => setTimeout(() => resolve({ ok: false, error: 'timeout_2500ms' }), 2500))
+    ]);
+  } catch (err) {
+    dbHealth = { ok: false, error: err.message };
+  }
 
-  res.status(isHealthy ? 200 : 503).json({
-    status: isHealthy ? 'healthy' : 'unhealthy',
+  res.status(200).json({
+    status: dbHealth.ok ? 'healthy' : 'degraded',
     uptimeSeconds: Math.floor(process.uptime()),
     database: dbHealth,
     bot: {
@@ -50,51 +57,74 @@ app.get('/health', async (req, res) => {
   });
 });
 
+// Endpoint oficial de Webhook Cloud-Native (/webhook/frota)
+app.post('/webhook/frota', async (req, res) => {
+  const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (secret && req.get('x-telegram-bot-api-secret-token') !== secret) {
+    return res.status(401).json({ error: 'Invalid webhook secret token' });
+  }
+  try {
+    await bot.handleUpdate(req.body, res);
+    if (!res.headersSent) {
+      res.status(200).json({ ok: true });
+    }
+  } catch (err) {
+    log.error('Erro ao processar /webhook/frota:', err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Webhook processing error' });
+    }
+  }
+});
+
 // Inicialização do Servidor e do Bot
 async function start() {
   try {
-    log.info('A verificar conectividade com o Supabase...');
-    const dbCheck = await checkDatabaseHealth();
-    if (dbCheck.ok) {
-      log.info(`✅ Supabase ligado com sucesso! Latência: ${dbCheck.latencyMs}ms | Viaturas ativas: ${dbCheck.countViaturas}`);
-    } else {
-      log.error('❌ Falha na conexão inicial ao Supabase:', dbCheck.error);
-    }
-
-    // Iniciar Servidor HTTP
-    const server = app.listen(PORT, () => {
-      log.info(`🚀 Servidor HTTP ativo na porta ${PORT}`);
+    // 1. Abrir imediatamente porta HTTP em 0.0.0.0 para readiness do Render
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      log.info(`🚀 Servidor HTTP ativo em 0.0.0.0:${PORT}`);
     });
 
-    // Endpoint oficial de Webhook Cloud-Native (/webhook/frota)
-    app.post('/webhook/frota', async (req, res) => {
-      const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
-      if (secret && req.get('x-telegram-bot-api-secret-token') !== secret) {
-        return res.status(401).json({ error: 'Invalid webhook secret token' });
-      }
+    // 2. Tratamento de Encerramento Gracioso
+    const gracefulShutdown = (signal) => {
+      log.info(`Recebido ${signal}. A encerrar serviços graciosamente...`);
+      stopFleetProactiveMonitor();
       try {
-        await bot.handleUpdate(req.body, res);
-        if (!res.headersSent) {
-          res.status(200).json({ ok: true });
-        }
-      } catch (err) {
-        log.error('Erro ao processar /webhook/frota:', err.message);
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Webhook processing error' });
-        }
+        bot.stop(signal);
+      } catch {
+        // Ignora caso o bot esteja em modo Webhook sem polling ativo
       }
-    });
+      server.close(() => {
+        log.info('Servidor HTTP encerrado. Processo terminado.');
+        process.exit(0);
+      });
+      setTimeout(() => process.exit(0), 2000).unref();
+    };
 
-    // Keep-Alive HTTP Render a cada 10 minutos
+    process.once('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+    // 3. Verificar Supabase em background / pós-bind sem bloquear porta HTTP
+    log.info('A verificar conectividade com o Supabase...');
+    checkDatabaseHealth()
+      .then((dbCheck) => {
+        if (dbCheck.ok) {
+          log.info(`✅ Supabase ligado com sucesso! Latência: ${dbCheck.latencyMs}ms | Viaturas ativas: ${dbCheck.countViaturas}`);
+        } else {
+          log.error('❌ Falha na conexão inicial ao Supabase:', dbCheck.error);
+        }
+      })
+      .catch((err) => log.error('❌ Erro ao verificar Supabase:', err.message));
+
+    // 4. Keep-Alive HTTP Render a cada 10 minutos
     if (process.env.RENDER || process.env.NODE_ENV === 'production' || process.env.RENDER_EXTERNAL_URL) {
       const keepAliveUrl = (process.env.RENDER_EXTERNAL_URL || 'https://zeropaper-frota-bot.onrender.com').replace(/\/$/, '');
       setInterval(() => {
-        fetch(`${keepAliveUrl}/health`).catch(() => {});
+        fetch(`${keepAliveUrl}/health`, { signal: AbortSignal.timeout(4000) }).catch(() => {});
       }, 10 * 60 * 1000).unref();
       log.info(`📡 Keep-Alive Render ativo: ${keepAliveUrl}/health a cada 10 min.`);
     }
 
-    // Iniciar Bot Telegraf (@zeropaperfrotaBot): Webhook em Cloud / Polling em Dev Local
+    // 5. Iniciar Bot Telegraf (@zeropaperfrotaBot): Webhook em Cloud / Polling em Dev Local (sem await bloqueante)
     const renderUrl = process.env.RENDER_EXTERNAL_URL || process.env.WEBHOOK_BASE_URL;
     if (renderUrl && process.env.USE_POLLING !== 'true') {
       const webhookUrl = `${renderUrl.replace(/\/$/, '')}/webhook/frota`;
@@ -108,33 +138,15 @@ async function start() {
       } catch (err) {
         log.warn(`Falha ao configurar webhook /webhook/frota, fallback polling: ${err.message}`);
         await bot.telegram.deleteWebhook({ drop_pending_updates: false }).catch(() => {});
-        await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
+        bot.launch({ allowedUpdates: ['message', 'callback_query'] }).catch((e) => log.error('Erro polling:', e.message));
       }
     } else {
       log.info('A iniciar Telegraf Bot (@zeropaperfrotaBot) em Polling local...');
       await bot.telegram.deleteWebhook({ drop_pending_updates: false }).catch(() => {});
-      await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
+      bot.launch({ allowedUpdates: ['message', 'callback_query'] }).catch((e) => log.error('Erro polling:', e.message));
     }
     startFleetProactiveMonitor(bot);
     log.info('🤖 ZeroPaperFrota Bot iniciado e pronto para receber mensagens!');
-
-    // Tratamento de Encerramento Gracioso
-    const gracefulShutdown = (signal) => {
-      log.info(`Recebido ${signal}. A encerrar serviços graciosamente...`);
-      stopFleetProactiveMonitor();
-      try {
-        bot.stop(signal);
-      } catch {
-        // Ignora caso o bot esteja em modo Webhook sem polling ativo
-      }
-      server.close(() => {
-        log.info('Servidor HTTP encerrado. Processo terminado.');
-        process.exit(0);
-      });
-    };
-
-    process.once('SIGINT', () => gracefulShutdown('SIGINT'));
-    process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
   } catch (err) {
     log.error('Erro crítico ao iniciar o serviço:', err.message);
