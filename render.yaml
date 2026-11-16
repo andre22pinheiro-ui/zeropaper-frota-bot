@@ -17,7 +17,7 @@ services:
       - key: TELEGRAM_FROTAS_TOKEN
         sync: false
       - key: ADMIN_TELEGRAM_ID
-        value: "950415577"
+        sync: false
       - key: SUPABASE_URL
         value: "https://bwibtpcunojmtnrnqpvg.supabase.co"
       - key: SUPABASE_SERVICE_ROLE_KEY

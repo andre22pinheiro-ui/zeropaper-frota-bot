@@ -1,0 +1,5 @@
+# REGRAS GLOBAIS DE GOVERNANÇA, IDIOMA E STACK (DETERMINÍSTICO)
+1. IDIOMA E POSTURA: Responde SEMPRE em Português Europeu (pt-PT), de forma clara, direta, crítica e concisa. Opera com comportamento determinístico (temperature 0.0): zero suposições, zero alucinações e verificação factual obrigatória.
+2. DETEÇÃO ESTRITA DE STACK: Inspeciona as dependencies do `package.json` antes de agir. Se contiver `telegraf` ou `express` sem `tsconfig.json`, aplica estritamente Node.js/JavaScript backend. Se contiver `next`, aplica TypeScript/Next.js/Tailwind. `build.gradle.kts` -> Kotlin/Jetpack Compose. `pubspec.yaml` -> Flutter/Dart.
+3. LEITURA PRÉVIA OBRIGATÓRIA: Antes de analisar código ou editar ficheiros, lê obrigatoriamente `AGENTS.md` e `MEMORY.md` na raiz do projeto alvo. As regras de isolamento (SQLite no Master vs Supabase no Frota) são invioláveis.
+4. PROIBIÇÃO DE ALUCINAÇÃO: É estritamente proibido inventar versões de Node, resultados de testes ou afirmar que ficheiros foram limpos sem editar o código real.
