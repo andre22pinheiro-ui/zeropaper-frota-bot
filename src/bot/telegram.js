@@ -16,7 +16,11 @@ if (!BOT_TOKEN) {
   log.error('TELEGRAM_FROTAS_TOKEN / TELEGRAM_BOT_TOKEN não configurado no .env!');
 }
 
-export const bot = new Telegraf(BOT_TOKEN);
+export const bot = new Telegraf(BOT_TOKEN, {
+  telegram: {
+    webhookReply: false
+  }
+});
 
 /**
  * Transcrição de áudio Telegram via Groq Whisper (<400ms)

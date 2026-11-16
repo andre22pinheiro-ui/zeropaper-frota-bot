@@ -94,16 +94,14 @@ app.post('/webhook/frota', async (req, res) => {
   if (secret && req.get('x-telegram-bot-api-secret-token') !== secret) {
     return res.status(401).json({ error: 'Invalid webhook secret token' });
   }
+  // Responde imediatamente 200 OK ao Telegram para evitar timeout de webhook
+  res.status(200).json({ ok: true });
+
   try {
-    await bot.handleUpdate(req.body, res);
-    if (!res.headersSent) {
-      res.status(200).json({ ok: true });
-    }
+    // Processamento assíncrono via Telegraf (chamadas enviadas via API Telegram direta)
+    await bot.handleUpdate(req.body);
   } catch (err) {
     log.error('Erro ao processar /webhook/frota:', err.message);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Webhook processing error' });
-    }
   }
 });
 

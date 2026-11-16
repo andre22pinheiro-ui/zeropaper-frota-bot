@@ -4,6 +4,9 @@ import { fleetService, APP_BASE_URL } from '../services/fleetService.js';
 import { stockService } from '../services/stockService.js';
 import { routeService } from '../services/routeService.js';
 import { fleetComplianceService } from '../services/fleetComplianceService.js';
+import { scheduleService } from '../services/scheduleService.js';
+import { vacationService } from '../services/vacationService.js';
+import { fleetAlertsService } from '../services/fleetAlertsService.js';
 import { identifyUser, authorizeUserByAdmin, listAuthorizedUsers } from '../security/authorization.js';
 import { dispatchMessage } from '../ai/dispatcher.js';
 
@@ -21,6 +24,14 @@ export function buildFleetCockpitKeyboard() {
       Markup.button.url('📲 Download APK', ROTABUS_APK_URL)
     ],
     [
+      Markup.button.callback('📅 Escala Serviço', 'act_frota_escala'),
+      Markup.button.callback('🏖️ Férias / Ausências', 'act_frota_ferias')
+    ],
+    [
+      Markup.button.callback('🚨 Alertas Frota', 'act_frota_alertas'),
+      Markup.button.callback('🚨 Avarias Turno', 'btn_shift_anomalies')
+    ],
+    [
       Markup.button.callback('🚛 Porto ➔ Lisboa', 'frota_porto_lisboa'),
       Markup.button.callback('🚛 Amarante ➔ Porto', 'frota_amarante_porto')
     ],
@@ -33,8 +44,7 @@ export function buildFleetCockpitKeyboard() {
       Markup.button.callback('🛡️ GSR2 / ADAS', 'btn_fleet_gsr2')
     ],
     [
-      Markup.button.callback('⚖️ Leis & DRE', 'btn_fleet_leis'),
-      Markup.button.callback('🚨 Avarias Turno', 'btn_shift_anomalies')
+      Markup.button.callback('⚖️ Leis & DRE', 'btn_fleet_leis')
     ]
   ]);
 }
@@ -62,6 +72,9 @@ export function registerCommands(bot) {
       `Podes enviar mensagens de texto ou **áudio de voz** diretamente ou utilizar os comandos:\n\n` +
       `• \`/frota\` — Estado geral e viaturas operacionais\n` +
       `• \`/viaturas\` — Lista detalhada de veículos\n` +
+      `• \`/escala [data/nome]\` — Consulta de escalas de serviço e circuitos\n` +
+      `• \`/ferias [pendentes/num]\` — Pedidos de férias e ausências\n` +
+      `• \`/alertas\` — Alertas de revisões, inspeções e caducidade de cartas\n` +
       `• \`/km\` — Instruções e registo de odómetro\n` +
       `• \`/avaria\` — Reportar anomalia ou avaria mecânica\n` +
       `• \`/lavagem\` — Registar higienização de viatura\n` +
@@ -95,6 +108,35 @@ export function registerCommands(bot) {
   bot.command(['frota', 'viaturas'], async (ctx) => {
     await ctx.sendChatAction('typing');
     const report = await fleetService.getFleetStatusReport();
+    await ctx.replyWithMarkdown(report);
+  });
+
+  // /escala (Escalas de serviço e circuitos de motoristas)
+  bot.command('escala', async (ctx) => {
+    const user = await identifyUser(ctx.from?.id, ctx.from?.first_name);
+    if (!user) return ctx.reply('⛔ Utilizador não autorizado.');
+    await ctx.sendChatAction('typing');
+    const args = (ctx.message?.text || '').replace(/^\/escala\s*/i, '').trim();
+    const report = await scheduleService.getDailyScheduleReport(args);
+    await ctx.replyWithMarkdown(report);
+  });
+
+  // /ferias e /ausencias (Pedidos de férias e ausências)
+  bot.command(['ferias', 'ausencias'], async (ctx) => {
+    const user = await identifyUser(ctx.from?.id, ctx.from?.first_name);
+    if (!user) return ctx.reply('⛔ Utilizador não autorizado.');
+    await ctx.sendChatAction('typing');
+    const args = (ctx.message?.text || '').replace(/^\/(ferias|ausencias)\s*/i, '').trim();
+    const report = await vacationService.getVacationReport(user, args);
+    await ctx.replyWithMarkdown(report);
+  });
+
+  // /alertas e /inspecoes (Auditoria e alertas da frota, inspeções e cartas)
+  bot.command(['alertas', 'inspecoes'], async (ctx) => {
+    const user = await identifyUser(ctx.from?.id, ctx.from?.first_name);
+    if (!user) return ctx.reply('⛔ Utilizador não autorizado.');
+    await ctx.sendChatAction('typing');
+    const report = await fleetAlertsService.getOperationalAlertsReport();
     await ctx.replyWithMarkdown(report);
   });
 

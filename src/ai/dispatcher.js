@@ -12,6 +12,9 @@ import { maintenanceService } from '../services/maintenanceService.js';
 import { stockService } from '../services/stockService.js';
 import { routeService } from '../services/routeService.js';
 import { fleetComplianceService } from '../services/fleetComplianceService.js';
+import { scheduleService } from '../services/scheduleService.js';
+import { vacationService } from '../services/vacationService.js';
+import { fleetAlertsService } from '../services/fleetAlertsService.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('Dispatcher');
@@ -32,23 +35,36 @@ export async function dispatchMessage(text, ctx) {
     };
   }
 
-  // 2. Verificação de Idempotência
-  const idempotencyKey = generateKey(fromId, 'MESSAGE', { text: text.trim() });
-  if (isAlreadyProcessed(idempotencyKey)) {
-    log.info(`Mensagem duplicada ignorada pela chave de idempotência: ${idempotencyKey.slice(0, 10)}`);
-    const prev = getPreviousResult(idempotencyKey);
-    return {
-      text: prev?.text || '⚠️ Esta mensagem já foi recebida e processada anteriormente.',
-      keyboard: null
-    };
-  }
-
-  // 3. Classificação Semântica
+  // 2. Classificação Semântica
   const classified = await classifyIntent(text);
   log.info(`Intenção classificada: ${classified.intent}`, {
     from: `${user.name} (${user.role})`,
     matricula: classified.matricula
   });
+
+  // 3. Verificação de Idempotência (apenas para operações de escrita para permitir consultas livres)
+  const isReadOnly = [
+    'fleet_status',
+    'stock_query',
+    'route_calculate',
+    'tacografo_audit',
+    'fleet_compliance',
+    'schedule_query',
+    'vacation_query',
+    'alerts_query',
+    'vehicle_lookup',
+    'help'
+  ].includes(classified.intent);
+
+  const idempotencyKey = generateKey(fromId, 'MESSAGE', { text: text.trim() });
+  if (!isReadOnly && isAlreadyProcessed(idempotencyKey)) {
+    log.info(`Mensagem de escrita duplicada ignorada pela chave de idempotência: ${idempotencyKey.slice(0, 10)}`);
+    const prev = getPreviousResult(idempotencyKey);
+    return {
+      text: prev?.text || '⚠️ Esta operação já foi submetida e processada anteriormente.',
+      keyboard: null
+    };
+  }
 
   // ─── OPERAÇÕES DE LEITURA (Execução Direta) ───────────────────────────────
 
@@ -83,6 +99,26 @@ export async function dispatchMessage(text, ctx) {
     const complianceOut = fleetComplianceService.consultFleetCompliance(text);
     recordExecution(idempotencyKey, { text: complianceOut });
     return { text: complianceOut, keyboard: null };
+  }
+
+  if (classified.intent === 'schedule_query') {
+    const queryArg = text.replace(/^\/escala\s*/i, '').trim();
+    const out = await scheduleService.getDailyScheduleReport(queryArg);
+    recordExecution(idempotencyKey, { text: out });
+    return { text: out, keyboard: null };
+  }
+
+  if (classified.intent === 'vacation_query') {
+    const queryArg = text.replace(/^\/(ferias|ausencias)\s*/i, '').trim();
+    const out = await vacationService.getVacationReport(user, queryArg);
+    recordExecution(idempotencyKey, { text: out });
+    return { text: out, keyboard: null };
+  }
+
+  if (classified.intent === 'alerts_query') {
+    const out = await fleetAlertsService.getOperationalAlertsReport();
+    recordExecution(idempotencyKey, { text: out });
+    return { text: out, keyboard: null };
   }
 
   if (classified.intent === 'vehicle_lookup' && classified.matricula) {

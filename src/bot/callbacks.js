@@ -6,6 +6,9 @@ import { fleetService, APP_BASE_URL } from '../services/fleetService.js';
 import { routeService } from '../services/routeService.js';
 import { fleetComplianceService } from '../services/fleetComplianceService.js';
 import { buildShiftStartAnomalyAlert } from '../services/fleetProactiveService.js';
+import { scheduleService } from '../services/scheduleService.js';
+import { vacationService } from '../services/vacationService.js';
+import { fleetAlertsService } from '../services/fleetAlertsService.js';
 import { kmService } from '../services/kmService.js';
 import { anomalyService } from '../services/anomalyService.js';
 import { hygieneService } from '../services/hygieneService.js';
@@ -24,6 +27,27 @@ const QUICK_FLEET_ACTIONS = {
     extra: Markup.inlineKeyboard([
       [Markup.button.webApp('🚛 Abrir AppFrota Web', APP_BASE_URL)],
       [Markup.button.callback('🔄 Atualizar Estado', 'act_frota_status')]
+    ])
+  }),
+  act_frota_escala: async () => ({
+    text: await scheduleService.getDailyScheduleReport(),
+    extra: Markup.inlineKeyboard([
+      [Markup.button.callback('📅 Escala Hoje', 'act_frota_escala'), Markup.button.callback('📊 Estado da Frota', 'act_frota_status')],
+      [Markup.button.webApp('🚛 Abrir AppFrota Web', APP_BASE_URL)]
+    ])
+  }),
+  act_frota_ferias: async (user) => ({
+    text: await vacationService.getVacationReport(user),
+    extra: Markup.inlineKeyboard([
+      [Markup.button.callback('🏖️ Férias Pendentes', 'act_frota_ferias'), Markup.button.callback('🚨 Alertas Frota', 'act_frota_alertas')],
+      [Markup.button.webApp('🚛 Abrir AppFrota Web', APP_BASE_URL)]
+    ])
+  }),
+  act_frota_alertas: async () => ({
+    text: await fleetAlertsService.getOperationalAlertsReport(),
+    extra: Markup.inlineKeyboard([
+      [Markup.button.callback('🔄 Atualizar Alertas', 'act_frota_alertas'), Markup.button.callback('📊 Estado da Frota', 'act_frota_status')],
+      [Markup.button.webApp('🚛 Abrir AppFrota Web', APP_BASE_URL)]
     ])
   }),
   act_frotas: async () => ({
@@ -74,7 +98,7 @@ export async function handleCallbackQuery(ctx) {
       return;
     }
     await ctx.answerCbQuery('A processar...').catch(() => {});
-    const res = await QUICK_FLEET_ACTIONS[data]();
+    const res = await QUICK_FLEET_ACTIONS[data](user);
     await ctx.replyWithMarkdown(res.text, res.extra ? res.extra : undefined);
     return;
   }

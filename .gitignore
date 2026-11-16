@@ -10,3 +10,8 @@ data/
 .DS_Store
 
 .gemini/
+.roorules
+memory-bank/
+*.ps1
+relatorio_*.txt
+service-account.json

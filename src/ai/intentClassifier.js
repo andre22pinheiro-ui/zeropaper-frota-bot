@@ -29,11 +29,14 @@ INTENÇÕES SUPORTADAS:
 - "route_calculate": Calcular rota rodoviária para pesados/autocarros (ex: "rota Porto para Lisboa", "caminho de Amarante para Braga").
 - "tacografo_audit": Auditoria de tempos de condução e pausas obrigatórias CE 561/2006 (ex: "tacógrafo 8.5 horas", "quantas pausas preciso para 9 horas de condução?").
 - "fleet_compliance": Formação CCP/CAM, Transporte Coletivo de Crianças (TCC Lei 13/2006), Smart Tacho Gen 2, GSR2/ADAS (BSIS/MOIS) e legislação pesada CE 561/2006 ou DRE.
+- "schedule_query": Consulta de escala de serviço, circuitos e turnos de motoristas (ex: "qual é a escala de hoje?", "serviço amanhã", "/escala").
+- "vacation_query": Pedidos de férias, ausências ou dispensas (ex: "pedidos de férias pendentes", "quantos dias de férias?", "/ferias").
+- "alerts_query": Alertas operacionais, inspeções periódicas ou caducidade de cartas/CAM (ex: "ver alertas da frota", "inspeções a vencer", "/alertas").
 - "help": Pedido de ajuda, comandos ou funcionamento (ex: "ajuda", "como funciona?", "/help").
 
 SCHEMA JSON OBRIGATÓRIO:
 {
-  "intent": "fleet_status" | "vehicle_lookup" | "km_register" | "anomaly_report" | "hygiene_register" | "checklist_register" | "maintenance_register" | "stock_query" | "stock_movement" | "route_calculate" | "tacografo_audit" | "fleet_compliance" | "help",
+  "intent": "fleet_status" | "vehicle_lookup" | "km_register" | "anomaly_report" | "hygiene_register" | "checklist_register" | "maintenance_register" | "stock_query" | "stock_movement" | "route_calculate" | "tacografo_audit" | "fleet_compliance" | "schedule_query" | "vacation_query" | "alerts_query" | "help",
   "matricula": string | null,
   "km": number | null,
   "descricao": string,
@@ -128,8 +131,8 @@ function fallbackHeuristic(text) {
   const plateMatch = text.match(/\b([0-9]{2}[- ][A-Z]{2}[- ][0-9]{2}|[A-Z]{2}[- ][0-9]{2}[- ][A-Z]{2})\b/i);
   const matricula = plateMatch ? plateMatch[1].replace(' ', '-').toUpperCase() : null;
 
-  if (/\b(frota|viaturas|resumo|veiculos)\b/i.test(t)) {
-    return { intent: 'fleet_status', matricula: null, descricao: text, confidence: 0.9 };
+  if (/\b(frota|viaturas?|resumo|ve[ií]culos?|status|estado(?:\s*geral)?|relat[oó]rio)\b/i.test(t) || /^f$/i.test(t)) {
+    return { intent: 'fleet_status', matricula: null, descricao: text, confidence: 0.95 };
   }
 
   const kmMatch = text.match(/(\d{4,6})\s*km/i);
@@ -197,6 +200,30 @@ function fallbackHeuristic(text) {
   if (/\b(tcc|gsr2?|adas|bsis|mois|revw|tpms|ddaw|edr|cam|cqm|13\/2006|2019\/2144|smart\s*tacho|vigilante|carrinha\s+escolar|repouso\s+(?:na\s+)?cabina|c[oó]digo\s+da\s+estrada|dre\.pt|leis?\s+(?:pesados|tr[aâ]nsito|rodovi[aá]ri))\b/i.test(t)) {
     return {
       intent: 'fleet_compliance',
+      descricao: text,
+      confidence: 0.9
+    };
+  }
+
+  if (/\b(escala|servi[cç]o\s+de\s+hoje|quem\s+conduz|turnos?)\b/i.test(t)) {
+    return {
+      intent: 'schedule_query',
+      descricao: text,
+      confidence: 0.9
+    };
+  }
+
+  if (/\b(f[eé]rias|aus[eê]ncias?|dias\s+de\s+descanso)\b/i.test(t)) {
+    return {
+      intent: 'vacation_query',
+      descricao: text,
+      confidence: 0.9
+    };
+  }
+
+  if (/\b(alertas?|inspe[cç][oõ]es?\s+(?:a\s+vencer|expirada|pendente)|revis[oõ]es?\s+pendente|caducidade)\b/i.test(t)) {
+    return {
+      intent: 'alerts_query',
       descricao: text,
       confidence: 0.9
     };
